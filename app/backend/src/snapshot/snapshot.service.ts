@@ -16,11 +16,17 @@ export class SnapshotService {
     constructor(private readonly fileStorageService: FileStorageService) { }
 
     async processSnapshot(snapshotData: CreateSnapshotDto): Promise<ProcessedSnapshot> {
+        console.log('=== ОБРАБОТКА СНИМКА В СЕРВИСЕ ===');
+
         const id = this.generateId();
         const receivedAt = new Date().toISOString();
 
+        console.log('Сгенерированный ID:', id);
+        console.log('Время получения:', receivedAt);
+
         // Вычисляем контрольную хэш-сумму для данных страницы
         const checksum = this.calculateChecksum(snapshotData);
+        console.log('Вычисленная контрольная сумма:', checksum);
 
         // Логирование полученных данных
         this.logger.log(`Получен снимок страницы: ${snapshotData.content.url}`);
@@ -31,8 +37,18 @@ export class SnapshotService {
         this.logger.debug(`Временная метка: ${snapshotData.content.timestamp}`);
         this.logger.debug(`Контрольная сумма: ${checksum}`);
 
+        console.log('Данные для сохранения:', {
+            url: snapshotData.content.url,
+            title: snapshotData.content.title,
+            htmlLength: snapshotData.content.html.length,
+            userAgent: snapshotData.userAgent,
+            timestamp: snapshotData.content.timestamp
+        });
+
         // Сохранение данных в файлы
+        console.log('Начинаем сохранение в файлы...');
         await this.saveSnapshotToFiles(snapshotData, id, checksum);
+        console.log('Сохранение в файлы завершено');
 
         // TODO: Здесь будет обработка HTML контента
         // await this.processHtmlContent(snapshotData.content.html);
@@ -40,11 +56,16 @@ export class SnapshotService {
         // TODO: Здесь будет извлечение метаданных
         // const metadata = await this.extractMetadata(snapshotData);
 
-        return {
+        const result = {
             id,
             receivedAt,
             checksum
         };
+
+        console.log('=== ОБРАБОТКА СНИМКА ЗАВЕРШЕНА ===');
+        console.log('Результат:', result);
+
+        return result;
     }
 
     private generateId(): string {
@@ -66,47 +87,68 @@ export class SnapshotService {
     }
 
     private async saveSnapshotToFiles(snapshotData: CreateSnapshotDto, id: string, checksum: string): Promise<void> {
-        try {
-            // Получаем путь к папке сохранения
-            const storagePath = this.fileStorageService.getStoragePath();
+        const maxRetries = 3;
+        let lastError;
 
-            // Создаем папку, если она не существует
-            await this.fileStorageService.ensureDirectoryExists(storagePath);
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                console.log(`Попытка сохранения ${attempt}/${maxRetries}`);
 
-            // Проверяем, нужно ли обновлять файлы
-            const shouldUpdate = await this.shouldUpdateSnapshot(checksum);
+                // Получаем путь к папке сохранения
+                const storagePath = this.fileStorageService.getStoragePath();
 
-            if (shouldUpdate) {
-                // Сохраняем HTML файл
-                const htmlPath = this.fileStorageService.createFilePath('index.html');
-                await this.fileStorageService.writeFile(htmlPath, snapshotData.content.html);
+                // Создаем папку, если она не существует
+                await this.fileStorageService.ensureDirectoryExists(storagePath);
 
-                // Создаем объект с метаданными (без HTML)
-                const metadata = {
-                    id,
-                    url: snapshotData.content.url,
-                    title: snapshotData.content.title,
-                    timestamp: snapshotData.content.timestamp,
-                    userAgent: snapshotData.userAgent,
-                    checksum,
-                    receivedAt: new Date().toISOString(),
-                    htmlSize: snapshotData.content.html.length
-                };
+                // Проверяем, нужно ли обновлять файлы
+                const shouldUpdate = await this.shouldUpdateSnapshot(checksum);
 
-                // Сохраняем JSON файл с метаданными
-                const jsonPath = this.fileStorageService.createFilePath('data.json');
-                await this.fileStorageService.writeFile(jsonPath, JSON.stringify(metadata, null, 2));
+                if (shouldUpdate) {
+                    // Сохраняем HTML файл
+                    const htmlPath = this.fileStorageService.createFilePath('index.html');
+                    await this.fileStorageService.writeFile(htmlPath, snapshotData.content.html);
 
-                this.logger.log(`Снимок сохранен: ${storagePath}`);
-                this.logger.debug(`HTML файл: ${htmlPath}`);
-                this.logger.debug(`JSON файл: ${jsonPath}`);
-            } else {
-                this.logger.log(`Снимок не изменился, пропускаем сохранение: ${storagePath}`);
+                    // Создаем объект с метаданными (без HTML)
+                    const metadata = {
+                        id,
+                        url: snapshotData.content.url,
+                        title: snapshotData.content.title,
+                        timestamp: snapshotData.content.timestamp,
+                        userAgent: snapshotData.userAgent,
+                        checksum,
+                        receivedAt: new Date().toISOString(),
+                        htmlSize: snapshotData.content.html.length
+                    };
+
+                    // Сохраняем JSON файл с метаданными
+                    const jsonPath = this.fileStorageService.createFilePath('data.json');
+                    await this.fileStorageService.writeFile(jsonPath, JSON.stringify(metadata, null, 2));
+
+                    this.logger.log(`Снимок сохранен: ${storagePath}`);
+                    this.logger.debug(`HTML файл: ${htmlPath}`);
+                    this.logger.debug(`JSON файл: ${jsonPath}`);
+                } else {
+                    this.logger.log(`Снимок не изменился, пропускаем сохранение: ${storagePath}`);
+                }
+
+                // Если дошли сюда, значит сохранение прошло успешно
+                return;
+
+            } catch (error) {
+                lastError = error;
+                console.error(`Ошибка сохранения снимка (попытка ${attempt}/${maxRetries}):`, error.message);
+
+                // Если это последняя попытка, выбрасываем ошибку
+                if (attempt === maxRetries) {
+                    this.logger.error(`Ошибка сохранения снимка после ${maxRetries} попыток: ${error.message}`);
+                    throw new Error(`Не удалось сохранить снимок после ${maxRetries} попыток: ${error.message}`);
+                }
+
+                // Ждем перед следующей попыткой (экспоненциальная задержка)
+                const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+                console.log(`Ждем ${delay}ms перед следующей попыткой...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
             }
-
-        } catch (error) {
-            this.logger.error(`Ошибка сохранения снимка: ${error.message}`);
-            throw new Error(`Не удалось сохранить снимок: ${error.message}`);
         }
     }
 

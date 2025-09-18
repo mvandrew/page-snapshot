@@ -175,6 +175,65 @@ function ensureAllSettingsFields(settings) {
     return ensuredSettings;
 }
 
+// Функция обработки HTML-контента для уменьшения размера
+function processHtmlContent(content) {
+    if (!content || !content.html) {
+        return content;
+    }
+
+    let processedHtml = content.html;
+
+    try {
+        // 1. Удаляем лишние пробелы и переносы строк
+        processedHtml = processedHtml.replace(/\s+/g, ' ');
+
+        // 2. Удаляем комментарии HTML
+        processedHtml = processedHtml.replace(/<!--[\s\S]*?-->/g, '');
+
+        // 3. Удаляем лишние атрибуты (оставляем только важные)
+        processedHtml = processedHtml.replace(/\s+(style|class|id|href|src|alt|title)="[^"]*"/g, '');
+
+        // 4. Удаляем пустые теги
+        processedHtml = processedHtml.replace(/<(\w+)[^>]*>\s*<\/\1>/g, '');
+
+        // 5. Сжимаем JavaScript и CSS
+        processedHtml = processedHtml.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, (match) => {
+            // Оставляем только внешние скрипты
+            if (match.includes('src=')) {
+                return match;
+            }
+            // Удаляем встроенные скрипты
+            return '';
+        });
+
+        processedHtml = processedHtml.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+
+        // 6. Ограничиваем размер HTML (максимум 2MB)
+        const maxSize = 2 * 1024 * 1024; // 2MB
+        if (processedHtml.length > maxSize) {
+            console.warn(`Page Snapshot: HTML too large (${processedHtml.length} bytes), truncating to ${maxSize} bytes`);
+            processedHtml = processedHtml.substring(0, maxSize) + '... [TRUNCATED]';
+        }
+
+        console.log('Page Snapshot: HTML processed:', {
+            originalSize: content.html.length,
+            processedSize: processedHtml.length,
+            reduction: content.html.length - processedHtml.length,
+            reductionPercent: ((content.html.length - processedHtml.length) / content.html.length * 100).toFixed(1) + '%'
+        });
+
+    } catch (error) {
+        console.error('Page Snapshot: Error processing HTML:', error);
+        // В случае ошибки возвращаем оригинальный контент
+        return content;
+    }
+
+    return {
+        ...content,
+        html: processedHtml
+    };
+}
+
 // Переменные для автоматического сохранения
 let saveIntervalId = null;
 let lastPageContent = null;
@@ -525,7 +584,7 @@ async function checkDomainMatch(url, domains) {
 
                 if (hostname === cleanDomain || hostname.endsWith('.' + cleanDomain) ||
                     hostname.includes(cleanDomain) || url.includes(cleanDomain)) {
-                    console.log('---Page Snapshot: Domain match found (string):', cleanDomain);
+                    console.log('Page Snapshot: Domain match found (string):', cleanDomain);
                     return true;
                 }
             }
@@ -629,14 +688,36 @@ async function savePageContent(tabId, content) {
             throw new Error('Extension not configured: missing domains or service URL');
         }
 
+        // Обрабатываем HTML-контент для уменьшения размера
+        const processedContent = processHtmlContent(content);
+        console.log('Page Snapshot: Content size info:', {
+            originalHtmlLength: content.html?.length || 0,
+            processedHtmlLength: processedContent.html?.length || 0,
+            compressionRatio: content.html?.length ? (processedContent.html.length / content.html.length * 100).toFixed(1) + '%' : 'N/A'
+        });
+
         const headers = {
             'Content-Type': 'application/json'
         };
 
         const payload = {
-            content: content,
+            content: processedContent,
             userAgent: navigator.userAgent
         };
+
+        // Проверяем размер payload
+        const payloadSize = JSON.stringify(payload).length;
+        const maxPayloadSize = 10 * 1024 * 1024; // 10MB
+
+        console.log('Page Snapshot: Payload size:', {
+            size: payloadSize,
+            sizeMB: (payloadSize / 1024 / 1024).toFixed(2) + ' MB',
+            maxSizeMB: (maxPayloadSize / 1024 / 1024).toFixed(2) + ' MB'
+        });
+
+        if (payloadSize > maxPayloadSize) {
+            throw new Error(`Payload too large: ${(payloadSize / 1024 / 1024).toFixed(2)}MB (max: ${(maxPayloadSize / 1024 / 1024).toFixed(2)}MB)`);
+        }
 
         let lastError;
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -695,13 +776,21 @@ async function savePageContent(tabId, content) {
     } catch (error) {
         console.error('Error saving page content:', error);
 
-        if (enableNotifications) {
-            chrome.notifications.create({
-                type: 'basic',
-                iconUrl: 'icons/icon48.png',
-                title: 'Page Snapshot',
-                message: 'Ошибка сохранения: ' + error.message
-            });
+        // Получаем настройки для уведомлений в случае ошибки
+        try {
+            const settings = await loadSettingsWithFallback();
+            const safeSettings = ensureAllSettingsFields(settings);
+
+            if (safeSettings.enableNotifications) {
+                chrome.notifications.create({
+                    type: 'basic',
+                    iconUrl: 'icons/icon48.png',
+                    title: 'Page Snapshot',
+                    message: 'Ошибка сохранения: ' + error.message
+                });
+            }
+        } catch (notificationError) {
+            console.error('Error showing notification:', notificationError);
         }
 
         throw error;

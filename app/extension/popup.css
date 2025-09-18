@@ -12,7 +12,7 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     font-size: 14px;
     line-height: 1.5;
-    color: #333;
+    color: #1f2937;
     background: #fff;
 }
 
@@ -68,7 +68,7 @@ body {
     font-size: 14px;
     font-weight: 600;
     margin-bottom: 8px;
-    color: #495057;
+    color: #374151;
 }
 
 .info-item {
@@ -85,14 +85,14 @@ body {
 .info-item label {
     font-size: 12px;
     font-weight: 500;
-    color: #6c757d;
+    color: #6b7280;
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
 
 .info-item span {
     font-size: 13px;
-    color: #495057;
+    color: #374151;
     word-break: break-all;
     line-height: 1.4;
 }
@@ -125,7 +125,7 @@ body {
 .warning-text {
     flex: 1;
     font-size: 13px;
-    color: #856404;
+    color: #92400e;
     line-height: 1.4;
 }
 
@@ -453,6 +453,90 @@ body {
 
 .container {
     animation: fadeIn 0.3s ease;
+}
+
+/* Dark theme support */
+@media (prefers-color-scheme: dark) {
+    body {
+        background: #1a1a1a;
+        color: #ffffff;
+    }
+
+    .container {
+        background: #2d2d2d;
+    }
+
+    .page-info {
+        background: #3a3a3a;
+        border-color: #4a4a4a;
+    }
+
+    .page-info h3 {
+        color: #ffffff;
+    }
+
+    .info-item label {
+        color: #9ca3af;
+    }
+
+    .info-item span {
+        color: #d1d5db;
+    }
+
+    .warning-message {
+        background: #451a03;
+        border-color: #92400e;
+    }
+
+    .warning-text {
+        color: #fbbf24;
+    }
+
+    .status-info.status-active {
+        background: #064e3b;
+        border-color: #059669;
+    }
+
+    .status-info.status-disabled {
+        background: #7f1d1d;
+        border-color: #dc2626;
+    }
+
+    .status-active .status-text {
+        color: #10b981;
+    }
+
+    .status-disabled .status-text {
+        color: #f87171;
+    }
+
+    .btn-outline {
+        color: #d1d5db;
+        border-color: #6b7280;
+    }
+
+    .btn-outline:hover:not(:disabled) {
+        background: #4a4a4a;
+        border-color: #9ca3af;
+        color: #ffffff;
+    }
+
+    .footer {
+        background: #3a3a3a;
+        border-color: #4a4a4a;
+    }
+
+    .footer-info {
+        color: #9ca3af;
+    }
+
+    .footer-info a {
+        color: #60a5fa;
+    }
+
+    .footer-info a:hover {
+        color: #93c5fd;
+    }
 }
 
 /* Responsive */

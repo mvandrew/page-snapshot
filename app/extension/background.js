@@ -13,7 +13,8 @@ self.addEventListener('unhandledrejection', (event) => {
 const defaultSettings = {
     domains: [],
     serviceUrl: '',
-    saveInterval: 0,
+    enableAutoSave: true,
+    saveInterval: 10, // Минимальная задержка 10 секунд по умолчанию
     saveOnlyOnChange: true,
     enableNotifications: true,
     enableDebug: false,
@@ -23,6 +24,10 @@ const defaultSettings = {
     quality: 0.9,
     lastChecksum: null
 };
+
+// Константы для ограничений интервала
+const MIN_SAVE_INTERVAL_SECONDS = 5; // Минимальная задержка 5 секунд
+const MAX_SAVE_INTERVAL_SECONDS = 60; // Максимальная задержка 60 секунд
 
 // Версия настроек для миграции
 const SETTINGS_VERSION = '1.0.0';
@@ -49,6 +54,25 @@ async function migrateSettings() {
             for (const [key, value] of Object.entries(existingSettings)) {
                 if (key in defaultSettings && value !== undefined) {
                     migratedSettings[key] = value;
+                }
+            }
+
+            // Нормализуем настройки после миграции
+            if (migratedSettings.domains) {
+                migratedSettings.domains = normalizeDomains(migratedSettings.domains);
+            }
+
+            if (migratedSettings.saveInterval !== undefined) {
+                const originalInterval = migratedSettings.saveInterval;
+                migratedSettings.saveInterval = normalizeSaveInterval(migratedSettings.saveInterval);
+
+                if (originalInterval !== migratedSettings.saveInterval) {
+                    console.log('Page Snapshot: Save interval normalized during migration:', {
+                        original: originalInterval,
+                        normalized: migratedSettings.saveInterval,
+                        min: MIN_SAVE_INTERVAL_SECONDS,
+                        max: MAX_SAVE_INTERVAL_SECONDS
+                    });
                 }
             }
 
@@ -111,6 +135,25 @@ function normalizeDomains(domains) {
     }).filter(domain => domain && domain.trim() !== '');
 }
 
+// Функция нормализации интервала сохранения
+function normalizeSaveInterval(interval) {
+    // Преобразуем в число
+    const numInterval = parseInt(interval, 10);
+
+    // Если не число или меньше 0, возвращаем минимальное значение
+    if (isNaN(numInterval) || numInterval < 0) {
+        return MIN_SAVE_INTERVAL_SECONDS;
+    }
+
+    // Если 0, отключаем автоматическое сохранение
+    if (numInterval === 0) {
+        return 0;
+    }
+
+    // Ограничиваем минимальным и максимальным значением
+    return Math.max(MIN_SAVE_INTERVAL_SECONDS, Math.min(MAX_SAVE_INTERVAL_SECONDS, numInterval));
+}
+
 // Универсальная функция загрузки настроек с восстановлением
 async function loadSettingsWithFallback() {
     try {
@@ -138,6 +181,21 @@ async function loadSettingsWithFallback() {
         // Нормализуем домены
         if (mergedSettings.domains) {
             mergedSettings.domains = normalizeDomains(mergedSettings.domains);
+        }
+
+        // Нормализуем интервал сохранения
+        if (mergedSettings.saveInterval !== undefined) {
+            const originalInterval = mergedSettings.saveInterval;
+            mergedSettings.saveInterval = normalizeSaveInterval(mergedSettings.saveInterval);
+
+            if (originalInterval !== mergedSettings.saveInterval) {
+                console.log('Page Snapshot: Save interval normalized:', {
+                    original: originalInterval,
+                    normalized: mergedSettings.saveInterval,
+                    min: MIN_SAVE_INTERVAL_SECONDS,
+                    max: MAX_SAVE_INTERVAL_SECONDS
+                });
+            }
         }
 
         return mergedSettings;
@@ -239,6 +297,11 @@ let saveIntervalId = null;
 let lastPageContent = null;
 let lastChecksum = null;
 
+// Переменные для защиты от частых запросов
+let isSaving = false;
+let lastSaveTime = 0;
+const MIN_SAVE_INTERVAL = 2000; // Минимальный интервал между сохранениями (2 секунды)
+
 // Обработка установки расширения
 chrome.runtime.onInstalled.addListener((details) => {
     console.log('Page Snapshot extension installed:', details);
@@ -329,10 +392,27 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
                 case 'saveSettings':
                     try {
-                        // Нормализуем домены перед сохранением
+                        // Нормализуем настройки перед сохранением
                         const normalizedSettings = { ...request.settings };
+
+                        // Нормализуем домены
                         if (normalizedSettings.domains) {
                             normalizedSettings.domains = normalizeDomains(normalizedSettings.domains);
+                        }
+
+                        // Нормализуем интервал сохранения
+                        if (normalizedSettings.saveInterval !== undefined) {
+                            const originalInterval = normalizedSettings.saveInterval;
+                            normalizedSettings.saveInterval = normalizeSaveInterval(normalizedSettings.saveInterval);
+
+                            if (originalInterval !== normalizedSettings.saveInterval) {
+                                console.log('Page Snapshot: Save interval normalized on save:', {
+                                    original: originalInterval,
+                                    normalized: normalizedSettings.saveInterval,
+                                    min: MIN_SAVE_INTERVAL_SECONDS,
+                                    max: MAX_SAVE_INTERVAL_SECONDS
+                                });
+                            }
                         }
 
                         await chrome.storage.sync.set(normalizedSettings);
@@ -389,6 +469,7 @@ async function setupAutoSave() {
     try {
         const settings = await loadSettingsWithFallback();
         const {
+            enableAutoSave = true,
             saveInterval = 0,
             enableDebug = false,
             domains = [],
@@ -397,21 +478,27 @@ async function setupAutoSave() {
 
         // Отладочная информация
         console.log('Page Snapshot: Setup auto-save:', {
+            enableAutoSave: enableAutoSave,
             saveInterval: saveInterval,
             domains: domains,
             serviceUrl: serviceUrl,
             isConfigured: isExtensionConfigured(domains, serviceUrl),
+            minInterval: MIN_SAVE_INTERVAL_SECONDS,
+            maxInterval: MAX_SAVE_INTERVAL_SECONDS,
             rawSettings: settings
         });
 
-        if (saveInterval > 0) {
+        if (enableAutoSave && saveInterval > 0) {
             saveIntervalId = setInterval(async () => {
                 await performAutoSave();
             }, saveInterval * 1000);
 
-            console.log(`Page Snapshot: Auto-save enabled with interval: ${saveInterval}s`);
+            console.log(`Page Snapshot: Auto-save enabled with interval: ${saveInterval}s (min: ${MIN_SAVE_INTERVAL_SECONDS}s, max: ${MAX_SAVE_INTERVAL_SECONDS}s)`);
         } else {
-            console.log('Page Snapshot: Auto-save disabled (interval = 0)');
+            console.log('Page Snapshot: Auto-save disabled', {
+                enableAutoSave: enableAutoSave,
+                saveInterval: saveInterval
+            });
         }
     } catch (error) {
         console.error('Error setting up auto-save:', error);
@@ -481,6 +568,11 @@ async function performAutoSave() {
         if (result && result.success) {
             lastPageContent = pageContent;
             lastChecksum = currentChecksum;
+        } else if (result && result.error) {
+            // Логируем причину пропуска сохранения
+            if (enableDebug) {
+                console.log('Page Snapshot: Save skipped:', result.error);
+            }
         }
 
         if (enableDebug) {
@@ -641,6 +733,23 @@ async function savePageContent(tabId, content) {
             htmlLength: content?.html?.length || 0
         });
 
+        // Защита от одновременных запросов
+        if (isSaving) {
+            console.log('Page Snapshot: Save already in progress, skipping');
+            return { success: false, error: 'Save already in progress' };
+        }
+
+        // Проверяем минимальный интервал между сохранениями
+        const now = Date.now();
+        if (now - lastSaveTime < MIN_SAVE_INTERVAL) {
+            console.log('Page Snapshot: Too soon to save, skipping');
+            return { success: false, error: 'Too soon to save' };
+        }
+
+        // Устанавливаем флаг сохранения
+        isSaving = true;
+        lastSaveTime = now;
+
         const settings = await loadSettingsWithFallback();
         console.log('Page Snapshot: Settings loaded in savePageContent:', settings);
 
@@ -794,6 +903,9 @@ async function savePageContent(tabId, content) {
         }
 
         throw error;
+    } finally {
+        // Сбрасываем флаг сохранения в любом случае
+        isSaving = false;
     }
 }
 

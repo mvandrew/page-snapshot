@@ -15,7 +15,7 @@ export interface ProcessedSnapshot {
 export class SnapshotService {
     private readonly logger = new Logger(SnapshotService.name);
 
-    constructor(private readonly configService: ConfigService) {}
+    constructor(private readonly configService: ConfigService) { }
 
     async processSnapshot(snapshotData: CreateSnapshotDto): Promise<ProcessedSnapshot> {
         const id = this.generateId();
@@ -71,22 +71,22 @@ export class SnapshotService {
         try {
             // Получаем путь к папке сохранения из переменной окружения
             const storagePath = this.configService.get<string>('SNAPSHOT_STORAGE_PATH', './storage/snapshots');
-            
+
             // Создаем папку, если она не существует
             await this.ensureDirectoryExists(storagePath);
-            
+
             // Путь к файлам для данного снимка
             const snapshotDir = path.join(storagePath, id);
             await this.ensureDirectoryExists(snapshotDir);
-            
+
             // Проверяем, нужно ли обновлять файлы
             const shouldUpdate = await this.shouldUpdateSnapshot(snapshotDir, checksum);
-            
+
             if (shouldUpdate) {
                 // Сохраняем HTML файл
                 const htmlPath = path.join(snapshotDir, 'index.html');
                 await fs.promises.writeFile(htmlPath, snapshotData.content.html, 'utf8');
-                
+
                 // Создаем объект с метаданными (без HTML)
                 const metadata = {
                     id,
@@ -98,18 +98,18 @@ export class SnapshotService {
                     receivedAt: new Date().toISOString(),
                     htmlSize: snapshotData.content.html.length
                 };
-                
+
                 // Сохраняем JSON файл с метаданными
                 const jsonPath = path.join(snapshotDir, 'data.json');
                 await fs.promises.writeFile(jsonPath, JSON.stringify(metadata, null, 2), 'utf8');
-                
+
                 this.logger.log(`Снимок сохранен: ${snapshotDir}`);
                 this.logger.debug(`HTML файл: ${htmlPath}`);
                 this.logger.debug(`JSON файл: ${jsonPath}`);
             } else {
                 this.logger.log(`Снимок не изменился, пропускаем сохранение: ${snapshotDir}`);
             }
-            
+
         } catch (error) {
             this.logger.error(`Ошибка сохранения снимка: ${error.message}`);
             throw new Error(`Не удалось сохранить снимок: ${error.message}`);
@@ -131,7 +131,7 @@ export class SnapshotService {
             const jsonPath = path.join(snapshotDir, 'data.json');
             const jsonData = await fs.promises.readFile(jsonPath, 'utf8');
             const existingData = JSON.parse(jsonData);
-            
+
             // Сравниваем контрольные суммы
             return existingData.checksum !== newChecksum;
         } catch {

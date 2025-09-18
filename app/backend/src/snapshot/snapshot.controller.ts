@@ -22,7 +22,8 @@ export class SnapshotController {
                 message: 'Снимок страницы успешно получен',
                 data: {
                     id: result.id,
-                    receivedAt: result.receivedAt
+                    receivedAt: result.receivedAt,
+                    checksum: result.checksum
                 }
             };
         } catch (error) {

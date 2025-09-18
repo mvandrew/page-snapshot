@@ -1,9 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { CreateSnapshotDto } from './dto/create-snapshot.dto';
+import * as crypto from 'crypto';
 
 export interface ProcessedSnapshot {
     id: string;
     receivedAt: string;
+    checksum: string;
 }
 
 @Injectable()
@@ -14,6 +16,9 @@ export class SnapshotService {
         const id = this.generateId();
         const receivedAt = new Date().toISOString();
 
+        // Вычисляем контрольную хэш-сумму для данных страницы
+        const checksum = this.calculateChecksum(snapshotData);
+
         // Логирование полученных данных
         this.logger.log(`Получен снимок страницы: ${snapshotData.content.url}`);
         this.logger.debug(`ID: ${id}`);
@@ -21,6 +26,7 @@ export class SnapshotService {
         this.logger.debug(`Размер HTML: ${snapshotData.content.html.length} символов`);
         this.logger.debug(`User Agent: ${snapshotData.userAgent}`);
         this.logger.debug(`Временная метка: ${snapshotData.content.timestamp}`);
+        this.logger.debug(`Контрольная сумма: ${checksum}`);
 
         // TODO: Здесь будет сохранение в базу данных
         // await this.saveToDatabase(snapshotData, id);
@@ -33,7 +39,8 @@ export class SnapshotService {
 
         return {
             id,
-            receivedAt
+            receivedAt,
+            checksum
         };
     }
 
@@ -42,6 +49,20 @@ export class SnapshotService {
         const timestamp = Date.now().toString(36);
         const random = Math.random().toString(36).substring(2, 8);
         return `snapshot_${timestamp}_${random}`;
+    }
+
+    private calculateChecksum(snapshotData: CreateSnapshotDto): string {
+        // Создаем строку для хэширования из всех важных данных
+        const dataToHash = JSON.stringify({
+            html: snapshotData.content.html,
+            url: snapshotData.content.url,
+            title: snapshotData.content.title,
+            timestamp: snapshotData.content.timestamp,
+            userAgent: snapshotData.userAgent
+        });
+
+        // Вычисляем SHA-256 хэш
+        return crypto.createHash('sha256').update(dataToHash, 'utf8').digest('hex');
     }
 
     // TODO: Методы для будущей реализации

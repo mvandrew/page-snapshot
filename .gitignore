@@ -202,3 +202,7 @@ Thumbs.db
 *.local
 *.backup
 *.bak
+
+# Скрытые файлы и папки (кроме .gitignore)
+.*
+!.gitignore

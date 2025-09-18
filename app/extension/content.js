@@ -31,10 +31,26 @@
                 sendResponse({ success: true });
                 break;
 
+            case 'settingsUpdated':
+                console.log('Page Snapshot: Settings updated, reinitializing');
+                checkConfigurationAndInit();
+                sendResponse({ success: true });
+                break;
+
+            case 'triggerAutoSave':
+                console.log('Page Snapshot: Manual auto-save triggered');
+                triggerAutoSave();
+                sendResponse({ success: true });
+                break;
+
             default:
                 sendResponse({ error: 'Unknown action' });
         }
     });
+
+    // Переменные для автоматического сохранения
+    let autoSaveInterval = null;
+    let lastSavedContent = null;
 
     // Проверка конфигурации и инициализация
     function checkConfigurationAndInit() {
@@ -67,6 +83,9 @@
                 if (isConfigured) {
                     // Проверяем соответствие текущего домена
                     checkDomainMatch(response.domains);
+
+                    // Запускаем периодическое автоматическое сохранение
+                    startAutoSave(response);
                 } else {
                     console.log('Page Snapshot: Extension not configured');
                     console.log('Page Snapshot: Current page info:', {
@@ -78,6 +97,37 @@
                 console.log('Page Snapshot: No settings received');
             }
         });
+    }
+
+    // Запуск автоматического сохранения
+    function startAutoSave(settings) {
+        // Очищаем предыдущий интервал
+        if (autoSaveInterval) {
+            clearInterval(autoSaveInterval);
+            autoSaveInterval = null;
+        }
+
+        const { saveInterval, saveOnlyOnChange } = settings;
+
+        if (saveInterval > 0) {
+            console.log(`Page Snapshot: Starting auto-save with interval: ${saveInterval}s`);
+
+            autoSaveInterval = setInterval(() => {
+                // Проверяем, нужно ли сохранять только при изменении
+                if (saveOnlyOnChange) {
+                    const currentContent = document.documentElement.outerHTML;
+                    if (lastSavedContent === currentContent) {
+                        console.log('Page Snapshot: Content unchanged, skipping save');
+                        return;
+                    }
+                    lastSavedContent = currentContent;
+                }
+
+                triggerAutoSave();
+            }, saveInterval * 1000);
+        } else {
+            console.log('Page Snapshot: Auto-save disabled (interval = 0)');
+        }
     }
 
     // Проверка конфигурации расширения
@@ -177,6 +227,8 @@
 
         if (localMatch) {
             console.log('Page Snapshot: Domain matches locally, auto-save will work');
+            // Запускаем автоматическое сохранение
+            triggerAutoSave();
             return;
         }
 
@@ -192,11 +244,38 @@
 
             if (response && response.match) {
                 console.log('Page Snapshot: Domain matches via background, auto-save will work');
+                // Запускаем автоматическое сохранение
+                triggerAutoSave();
             } else {
                 console.log('Page Snapshot: Current domain does not match configured domains');
                 console.log('Page Snapshot: Current URL:', currentUrl);
                 console.log('Page Snapshot: Current hostname:', currentHostname);
                 console.log('Page Snapshot: Configured domains:', domains);
+            }
+        });
+    }
+
+    // Запуск автоматического сохранения
+    function triggerAutoSave() {
+        console.log('Page Snapshot: Triggering auto-save from content script');
+
+        // Получаем информацию о странице
+        const pageInfo = getPageInfo();
+
+        // Отправляем в background script для сохранения
+        chrome.runtime.sendMessage({
+            action: 'savePageContent',
+            content: pageInfo
+        }, function (response) {
+            if (chrome.runtime.lastError) {
+                console.error('Page Snapshot: Error triggering auto-save:', chrome.runtime.lastError);
+                return;
+            }
+
+            if (response && response.success) {
+                console.log('Page Snapshot: Page saved successfully via content script');
+            } else {
+                console.log('Page Snapshot: Failed to save page via content script:', response?.error || 'Unknown error');
             }
         });
     }

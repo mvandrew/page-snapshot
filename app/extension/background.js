@@ -4,8 +4,6 @@
 const defaultSettings = {
     domains: [],
     serviceUrl: '',
-    serviceMethod: 'POST',
-    serviceHeaders: '{}',
     saveInterval: 0,
     saveOnlyOnChange: true,
     enableNotifications: true,
@@ -39,8 +37,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             let result;
 
             switch (request.action) {
-                // case 'capturePage' удален - теперь только автоматическое сохранение
-
                 case 'savePageContent':
                     result = await savePageContent(sender.tab.id, request.content);
                     sendResponse({ success: true, data: result });
@@ -225,7 +221,7 @@ async function getPageContent(tabId) {
 async function savePageContent(tabId, content) {
     try {
         const settings = await chrome.storage.sync.get(Object.keys(defaultSettings));
-        const { domains, serviceUrl, serviceMethod, serviceHeaders, maxRetries, enableNotifications } = { ...defaultSettings, ...settings };
+        const { domains, serviceUrl, maxRetries, enableNotifications } = { ...defaultSettings, ...settings };
 
         // Проверяем конфигурацию перед сохранением
         if (!isExtensionConfigured(domains, serviceUrl)) {
@@ -233,8 +229,7 @@ async function savePageContent(tabId, content) {
         }
 
         const headers = {
-            'Content-Type': 'application/json',
-            ...JSON.parse(serviceHeaders || '{}')
+            'Content-Type': 'application/json'
         };
 
         const payload = {
@@ -247,7 +242,7 @@ async function savePageContent(tabId, content) {
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
             try {
                 const response = await fetch(serviceUrl, {
-                    method: serviceMethod,
+                    method: 'POST',
                     headers: headers,
                     body: JSON.stringify(payload)
                 });

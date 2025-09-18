@@ -79,8 +79,6 @@ class SettingsManager {
 
             // Загружаем остальные настройки
             document.getElementById('service-url').value = settings.serviceUrl;
-            document.getElementById('service-method').value = settings.serviceMethod;
-            document.getElementById('service-headers').value = settings.serviceHeaders;
             document.getElementById('save-interval').value = settings.saveInterval;
             document.getElementById('save-only-on-change').checked = settings.saveOnlyOnChange;
             document.getElementById('enable-notifications').checked = settings.enableNotifications;
@@ -233,8 +231,6 @@ class SettingsManager {
             const settings = {
                 domains: this.getCurrentDomains(),
                 serviceUrl: document.getElementById('service-url').value.trim(),
-                serviceMethod: document.getElementById('service-method').value,
-                serviceHeaders: document.getElementById('service-headers').value.trim(),
                 saveInterval: parseInt(document.getElementById('save-interval').value),
                 saveOnlyOnChange: document.getElementById('save-only-on-change').checked,
                 enableNotifications: document.getElementById('enable-notifications').checked,
@@ -284,17 +280,6 @@ class SettingsManager {
             }
         }
 
-        // Валидация JSON заголовков
-        if (settings.serviceHeaders) {
-            try {
-                JSON.parse(settings.serviceHeaders);
-            } catch (e) {
-                return {
-                    isValid: false,
-                    message: 'Некорректный JSON в заголовках'
-                };
-            }
-        }
 
         // Валидация интервала
         if (settings.saveInterval < 0 || settings.saveInterval > 3600) {

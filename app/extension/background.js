@@ -20,8 +20,127 @@ const defaultSettings = {
     maxRetries: 3,
     autoCapture: false,
     captureFormat: 'png',
-    quality: 0.9
+    quality: 0.9,
+    lastChecksum: null
 };
+
+// Версия настроек для миграции
+const SETTINGS_VERSION = '1.0.0';
+
+// Функция миграции настроек
+async function migrateSettings() {
+    try {
+        // Получаем текущие настройки
+        const existingSettings = await chrome.storage.sync.get(null);
+
+        // Проверяем версию настроек
+        if (existingSettings.settingsVersion !== SETTINGS_VERSION) {
+            console.log('Page Snapshot: Migrating settings from version', existingSettings.settingsVersion || 'unknown', 'to', SETTINGS_VERSION);
+
+            // Создаем резервную копию существующих настроек
+            const backupSettings = { ...existingSettings };
+            backupSettings.backupDate = new Date().toISOString();
+            await chrome.storage.local.set({ settingsBackup: backupSettings });
+
+            // Создаем объект с настройками по умолчанию
+            const migratedSettings = { ...defaultSettings };
+
+            // Переносим существующие настройки, если они есть
+            for (const [key, value] of Object.entries(existingSettings)) {
+                if (key in defaultSettings && value !== undefined) {
+                    migratedSettings[key] = value;
+                }
+            }
+
+            // Добавляем версию настроек
+            migratedSettings.settingsVersion = SETTINGS_VERSION;
+
+            // Сохраняем мигрированные настройки
+            await chrome.storage.sync.set(migratedSettings);
+
+            console.log('Page Snapshot: Settings migrated successfully');
+            console.log('Page Snapshot: Backup saved to chrome.storage.local');
+        } else {
+            console.log('Page Snapshot: Settings are up to date');
+        }
+    } catch (error) {
+        console.error('Page Snapshot: Error migrating settings:', error);
+    }
+}
+
+// Функция восстановления настроек из резервной копии
+async function restoreSettingsFromBackup() {
+    try {
+        const backup = await chrome.storage.local.get(['settingsBackup']);
+        if (backup.settingsBackup) {
+            console.log('Page Snapshot: Restoring settings from backup');
+            await chrome.storage.sync.set(backup.settingsBackup);
+            return true;
+        }
+        return false;
+    } catch (error) {
+        console.error('Page Snapshot: Error restoring settings from backup:', error);
+        return false;
+    }
+}
+
+// Функция нормализации доменов
+function normalizeDomains(domains) {
+    if (!domains || !Array.isArray(domains)) {
+        return [];
+    }
+
+    return domains.map(domain => {
+        if (typeof domain !== 'string') {
+            return domain;
+        }
+
+        // Убираем протокол если он есть
+        let cleanDomain = domain;
+        if (cleanDomain.startsWith('http://') || cleanDomain.startsWith('https://')) {
+            cleanDomain = cleanDomain.replace(/^https?:\/\//, '');
+        }
+
+        // Убираем экранированные точки
+        cleanDomain = cleanDomain.replace(/\\\./g, '.');
+
+        // Убираем слеш в конце
+        cleanDomain = cleanDomain.replace(/\/$/, '');
+
+        return cleanDomain;
+    }).filter(domain => domain && domain.trim() !== '');
+}
+
+// Универсальная функция загрузки настроек с восстановлением
+async function loadSettingsWithFallback() {
+    try {
+        const settings = await chrome.storage.sync.get(Object.keys(defaultSettings));
+
+        // Если настройки пустые, пытаемся восстановить из резервной копии
+        if (!settings || Object.keys(settings).length === 0) {
+            console.log('Page Snapshot: No settings found, trying to restore from backup');
+            const restored = await restoreSettingsFromBackup();
+            if (restored) {
+                console.log('Page Snapshot: Settings restored from backup');
+                // Повторно получаем настройки после восстановления
+                const restoredSettings = await chrome.storage.sync.get(Object.keys(defaultSettings));
+                return { ...defaultSettings, ...restoredSettings };
+            }
+        }
+
+        const mergedSettings = { ...defaultSettings, ...settings };
+
+        // Нормализуем домены
+        if (mergedSettings.domains) {
+            mergedSettings.domains = normalizeDomains(mergedSettings.domains);
+        }
+
+        return mergedSettings;
+    } catch (error) {
+        console.error('Page Snapshot: Error loading settings:', error);
+        return defaultSettings;
+    }
+}
 
 // Переменные для автоматического сохранения
 let saveIntervalId = null;
@@ -32,14 +151,21 @@ let lastChecksum = null;
 chrome.runtime.onInstalled.addListener((details) => {
     console.log('Page Snapshot extension installed:', details);
 
-    // Инициализация настроек по умолчанию
-    chrome.storage.sync.set(defaultSettings, () => {
-        if (chrome.runtime.lastError) {
-            console.error('Error setting default settings:', chrome.runtime.lastError);
-        } else {
-            console.log('Default settings initialized');
-        }
-    });
+    // Инициализация настроек по умолчанию только при первой установке
+    if (details.reason === 'install') {
+        chrome.storage.sync.set(defaultSettings, () => {
+            if (chrome.runtime.lastError) {
+                console.error('Error setting default settings:', chrome.runtime.lastError);
+            } else {
+                console.log('Default settings initialized');
+            }
+        });
+    } else if (details.reason === 'update') {
+        console.log('Extension updated, migrating settings');
+
+        // При обновлении мигрируем настройки
+        migrateSettings();
+    }
 
     // Настройка автоматического сохранения
     setupAutoSave();
@@ -64,15 +190,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
                 case 'getSettings':
                     try {
-                        const settings = await chrome.storage.sync.get(Object.keys(defaultSettings));
-                        const mergedSettings = { ...defaultSettings, ...settings };
+                        const settings = await loadSettingsWithFallback();
 
                         // Отладочная информация
-                        if (mergedSettings.enableDebug) {
-                            console.log('Page Snapshot: Getting settings:', mergedSettings);
+                        if (settings.enableDebug) {
+                            console.log('Page Snapshot: Getting settings:', settings);
                         }
 
-                        sendResponse(mergedSettings);
+                        sendResponse(settings);
                     } catch (error) {
                         console.error('Error getting settings:', error);
                         sendResponse({ ...defaultSettings });
@@ -81,7 +206,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
                 case 'saveSettings':
                     try {
-                        await chrome.storage.sync.set(request.settings);
+                        // Нормализуем домены перед сохранением
+                        const normalizedSettings = { ...request.settings };
+                        if (normalizedSettings.domains) {
+                            normalizedSettings.domains = normalizeDomains(normalizedSettings.domains);
+                        }
+
+                        await chrome.storage.sync.set(normalizedSettings);
                         setupAutoSave(); // Перезапускаем автоматическое сохранение
                         sendResponse({ success: true });
                     } catch (error) {
@@ -131,8 +262,8 @@ async function setupAutoSave() {
     }
 
     try {
-        const settings = await chrome.storage.sync.get(Object.keys(defaultSettings));
-        const { saveInterval, enableDebug, domains, serviceUrl } = { ...defaultSettings, ...settings };
+        const settings = await loadSettingsWithFallback();
+        const { saveInterval, enableDebug, domains, serviceUrl } = settings;
 
         // Отладочная информация
         console.log('Page Snapshot: Setup auto-save:', {
@@ -160,8 +291,8 @@ async function setupAutoSave() {
 // Выполнение автоматического сохранения
 async function performAutoSave() {
     try {
-        const settings = await chrome.storage.sync.get(Object.keys(defaultSettings));
-        const { domains, serviceUrl, saveOnlyOnChange, enableDebug } = { ...defaultSettings, ...settings };
+        const settings = await loadSettingsWithFallback();
+        const { domains, serviceUrl, saveOnlyOnChange, enableDebug } = settings;
 
         // Отладочная информация
         if (enableDebug) {
@@ -292,16 +423,33 @@ async function checkDomainMatch(url, domains) {
         });
 
         for (const domain of domains) {
+            console.log('Page Snapshot: Testing domain pattern:', domain);
+
             try {
+                // Сначала пробуем как регулярное выражение
                 const regex = new RegExp(domain);
                 if (regex.test(hostname) || regex.test(url)) {
-                    console.log('Page Snapshot: Domain match found:', domain);
+                    console.log('Page Snapshot: Domain match found (regex):', domain);
                     return true;
                 }
             } catch (e) {
+                console.log('Page Snapshot: Not a valid regex, trying as string:', domain);
+
                 // Если не регулярное выражение, проверяем как обычную строку
-                if (hostname.includes(domain) || url.includes(domain)) {
-                    console.log('Page Snapshot: Domain match found (string):', domain);
+                // Убираем протокол из домена если он есть
+                let cleanDomain = domain;
+                if (cleanDomain.startsWith('http://') || cleanDomain.startsWith('https://')) {
+                    cleanDomain = cleanDomain.replace(/^https?:\/\//, '');
+                }
+
+                // Убираем экранированные точки
+                cleanDomain = cleanDomain.replace(/\\\./g, '.');
+
+                console.log('Page Snapshot: Cleaned domain:', cleanDomain);
+
+                if (hostname === cleanDomain || hostname.endsWith('.' + cleanDomain) ||
+                    hostname.includes(cleanDomain) || url.includes(cleanDomain)) {
+                    console.log('Page Snapshot: Domain match found (string):', cleanDomain);
                     return true;
                 }
             }
@@ -351,8 +499,8 @@ async function getPageContent(tabId) {
 // Сохранение содержимого страницы на сервер
 async function savePageContent(tabId, content) {
     try {
-        const settings = await chrome.storage.sync.get(Object.keys(defaultSettings));
-        const { domains, serviceUrl, maxRetries, enableNotifications, enableDebug } = { ...defaultSettings, ...settings };
+        const settings = await loadSettingsWithFallback();
+        const { domains, serviceUrl, maxRetries, enableNotifications, enableDebug } = settings;
 
         // Отладочная информация
         if (enableDebug) {
@@ -471,20 +619,33 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     }
 });
 
-// Обработка ошибок Chrome API
-chrome.runtime.onStartup.addListener(() => {
-    console.log('Extension started');
+// Обработка запуска расширения
+chrome.runtime.onStartup.addListener(async () => {
+    console.log('Page Snapshot: Extension started');
+
+    // Миграция настроек при запуске
+    await migrateSettings();
+
+    // Настройка автоматического сохранения при запуске
+    setupAutoSave();
 });
 
+// Обработка приостановки расширения
 chrome.runtime.onSuspend.addListener(() => {
-    console.log('Extension suspended');
+    console.log('Page Snapshot: Extension suspended');
+
+    // Очищаем интервал при приостановке
+    if (saveIntervalId) {
+        clearInterval(saveIntervalId);
+        saveIntervalId = null;
+    }
 });
 
 // Проверка и сохранение при обновлении страницы
 async function checkAndSaveOnUpdate(tabId, url) {
     try {
-        const settings = await chrome.storage.sync.get(Object.keys(defaultSettings));
-        const { domains, serviceUrl, saveOnlyOnChange, enableDebug } = { ...defaultSettings, ...settings };
+        const settings = await loadSettingsWithFallback();
+        const { domains, serviceUrl, saveOnlyOnChange, enableDebug } = settings;
 
         // Отладочная информация
         if (enableDebug) {

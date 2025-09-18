@@ -258,9 +258,13 @@ class NotificationManager {
 }
 
 // Экспортируем класс для использования в других модулях
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = NotificationManager;
-} else {
-    // Для использования в Chrome Extension
+if (typeof self !== 'undefined') {
+    // Для Service Worker
+    self.NotificationManager = NotificationManager;
+} else if (typeof window !== 'undefined') {
+    // Для обычных скриптов
     window.NotificationManager = NotificationManager;
+} else if (typeof module !== 'undefined' && module.exports) {
+    // Для Node.js
+    module.exports = NotificationManager;
 }

@@ -155,9 +155,13 @@ class DomainValidator {
 }
 
 // Экспортируем класс для использования в других модулях
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = DomainValidator;
-} else {
-    // Для использования в Chrome Extension
+if (typeof self !== 'undefined') {
+    // Для Service Worker
+    self.DomainValidator = DomainValidator;
+} else if (typeof window !== 'undefined') {
+    // Для обычных скриптов
     window.DomainValidator = DomainValidator;
+} else if (typeof module !== 'undefined' && module.exports) {
+    // Для Node.js
+    module.exports = DomainValidator;
 }

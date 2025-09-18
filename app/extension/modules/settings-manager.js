@@ -286,9 +286,13 @@ class SettingsManager {
 }
 
 // Экспортируем класс для использования в других модулях
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = SettingsManager;
-} else {
-    // Для использования в Chrome Extension
+if (typeof self !== 'undefined') {
+    // Для Service Worker
+    self.SettingsManager = SettingsManager;
+} else if (typeof window !== 'undefined') {
+    // Для обычных скриптов
     window.SettingsManager = SettingsManager;
+} else if (typeof module !== 'undefined' && module.exports) {
+    // Для Node.js
+    module.exports = SettingsManager;
 }

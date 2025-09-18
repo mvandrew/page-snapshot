@@ -257,9 +257,13 @@ class HttpClient {
 }
 
 // Экспортируем класс для использования в других модулях
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = HttpClient;
-} else {
-    // Для использования в Chrome Extension
+if (typeof self !== 'undefined') {
+    // Для Service Worker
+    self.HttpClient = HttpClient;
+} else if (typeof window !== 'undefined') {
+    // Для обычных скриптов
     window.HttpClient = HttpClient;
+} else if (typeof module !== 'undefined' && module.exports) {
+    // Для Node.js
+    module.exports = HttpClient;
 }

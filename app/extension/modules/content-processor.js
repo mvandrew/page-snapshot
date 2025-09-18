@@ -233,18 +233,32 @@ class ContentProcessor {
      * @returns {Object} Информация о viewport
      */
     getViewportInfo() {
+        // В Service Worker нет доступа к window, возвращаем значения по умолчанию
+        if (typeof window !== 'undefined') {
+            return {
+                width: window.innerWidth || 0,
+                height: window.innerHeight || 0,
+                devicePixelRatio: window.devicePixelRatio || 1
+            };
+        }
+
+        // Значения по умолчанию для Service Worker
         return {
-            width: window.innerWidth || 0,
-            height: window.innerHeight || 0,
-            devicePixelRatio: window.devicePixelRatio || 1
+            width: 1920,
+            height: 1080,
+            devicePixelRatio: 1
         };
     }
 }
 
 // Экспортируем класс для использования в других модулях
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = ContentProcessor;
-} else {
-    // Для использования в Chrome Extension
+if (typeof self !== 'undefined') {
+    // Для Service Worker
+    self.ContentProcessor = ContentProcessor;
+} else if (typeof window !== 'undefined') {
+    // Для обычных скриптов
     window.ContentProcessor = ContentProcessor;
+} else if (typeof module !== 'undefined' && module.exports) {
+    // Для Node.js
+    module.exports = ContentProcessor;
 }

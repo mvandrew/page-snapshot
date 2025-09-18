@@ -330,9 +330,13 @@ class BackgroundController {
 }
 
 // Экспортируем класс для использования
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = BackgroundController;
-} else {
-    // Для использования в Chrome Extension
+if (typeof self !== 'undefined') {
+    // Для Service Worker
+    self.BackgroundController = BackgroundController;
+} else if (typeof window !== 'undefined') {
+    // Для обычных скриптов
     window.BackgroundController = BackgroundController;
+} else if (typeof module !== 'undefined' && module.exports) {
+    // Для Node.js
+    module.exports = BackgroundController;
 }

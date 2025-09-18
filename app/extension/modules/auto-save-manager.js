@@ -305,9 +305,13 @@ class AutoSaveManager {
 }
 
 // Экспортируем класс для использования в других модулях
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = AutoSaveManager;
-} else {
-    // Для использования в Chrome Extension
+if (typeof self !== 'undefined') {
+    // Для Service Worker
+    self.AutoSaveManager = AutoSaveManager;
+} else if (typeof window !== 'undefined') {
+    // Для обычных скриптов
     window.AutoSaveManager = AutoSaveManager;
+} else if (typeof module !== 'undefined' && module.exports) {
+    // Для Node.js
+    module.exports = AutoSaveManager;
 }

@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, HttpException } from '@nestjs/common';
 import { SnapshotService } from './snapshot.service';
 import { CreateSnapshotDto } from './dto/create-snapshot.dto';
 import { SnapshotResponseDto } from './dto/snapshot-response.dto';
@@ -27,10 +27,25 @@ export class SnapshotController {
                 }
             };
         } catch (error) {
-            return {
-                success: false,
-                message: `Ошибка обработки снимка: ${error.message}`
-            };
+            // Если ошибка связана с сохранением файлов, возвращаем 500
+            if (error.message.includes('Не удалось сохранить снимок')) {
+                throw new HttpException(
+                    {
+                        success: false,
+                        message: error.message
+                    },
+                    HttpStatus.INTERNAL_SERVER_ERROR
+                );
+            }
+            
+            // Для других ошибок возвращаем 400
+            throw new HttpException(
+                {
+                    success: false,
+                    message: `Ошибка обработки снимка: ${error.message}`
+                },
+                HttpStatus.BAD_REQUEST
+            );
         }
     }
 

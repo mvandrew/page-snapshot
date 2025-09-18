@@ -148,6 +148,20 @@ body {
     margin-top: 6px;
 }
 
+.interval-limits {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: #fef3c7;
+    border: 1px solid #f59e0b;
+    border-radius: 6px;
+    color: #92400e;
+}
+
+.interval-limits small {
+    font-size: 11px;
+    font-weight: 500;
+}
+
 /* Domains management */
 .domains-container {
     display: flex;
@@ -326,6 +340,28 @@ body {
     cursor: pointer;
     border: none;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.range-input:disabled {
+    background: #f3f4f6;
+    cursor: not-allowed;
+}
+
+.range-input:disabled::-webkit-slider-thumb {
+    background: #d1d5db;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.range-input:disabled::-webkit-slider-thumb:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+.range-input:disabled::-moz-range-thumb {
+    background: #d1d5db;
+    cursor: not-allowed;
+    box-shadow: none;
 }
 
 .range-labels {

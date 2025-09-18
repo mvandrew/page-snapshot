@@ -87,23 +87,36 @@
                         Периодичность сохранения
                     </h2>
                     <p class="section-description">
-                        Как часто сохранять страницу (в секундах). 0 = отключить автоматическое сохранение.
+                        Как часто сохранять страницу (в секундах). Для отключения автоматического сохранения используйте
+                        чекбокс ниже.
+                        <strong>Диапазон: от 5 до 60 секунд.</strong>
                     </p>
 
                     <div class="input-group">
                         <label for="save-interval" class="input-label">Интервал сохранения (секунды)</label>
                         <div class="range-container">
-                            <input type="range" id="save-interval" class="range-input" min="0" max="3600" step="10"
-                                value="0">
+                            <input type="range" id="save-interval" class="range-input" min="5" max="60" step="1"
+                                value="10">
                             <div class="range-labels">
-                                <span>0</span>
-                                <span id="interval-value">0</span>
-                                <span>3600</span>
+                                <span>5</span>
+                                <span id="interval-value">10</span>
+                                <span>60</span>
                             </div>
                         </div>
                         <div class="input-help">
-                            <span id="interval-description">Автоматическое сохранение отключено</span>
+                            <span id="interval-description">Сохранение каждые 10 секунд</span>
+                            <div class="interval-limits">
+                                <small>⚠️ Интервал автоматически ограничивается от 5 до 60 секунд</small>
+                            </div>
                         </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="enable-auto-save">
+                            <span class="checkmark"></span>
+                            Включить автоматическое сохранение
+                        </label>
                     </div>
 
                     <div class="input-group">

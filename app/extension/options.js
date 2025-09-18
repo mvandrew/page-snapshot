@@ -7,12 +7,17 @@ class SettingsManager {
             serviceUrl: '',
             serviceMethod: 'POST',
             serviceHeaders: '{}',
-            saveInterval: 0,
+            enableAutoSave: true,
+            saveInterval: 10, // Минимальная задержка 10 секунд по умолчанию
             saveOnlyOnChange: true,
             enableNotifications: true,
             enableDebug: false,
             maxRetries: 3
         };
+
+        // Константы для ограничений интервала
+        this.MIN_SAVE_INTERVAL = 5; // Минимальная задержка 5 секунд
+        this.MAX_SAVE_INTERVAL = 60; // Максимальная задержка 60 секунд
 
         this.init();
     }
@@ -21,6 +26,10 @@ class SettingsManager {
         this.setupEventListeners();
         await this.loadSettings();
         this.updateIntervalDescription();
+
+        // Инициализируем состояние элементов управления автоматическим сохранением
+        const enableAutoSave = document.getElementById('enable-auto-save').checked;
+        this.toggleAutoSaveControls(enableAutoSave);
     }
 
     setupEventListeners() {
@@ -33,6 +42,11 @@ class SettingsManager {
         // Слайдер интервала
         document.getElementById('save-interval').addEventListener('input', (e) => {
             this.updateIntervalDescription();
+        });
+
+        // Чекбокс включения/отключения автоматического сохранения
+        document.getElementById('enable-auto-save').addEventListener('change', (e) => {
+            this.toggleAutoSaveControls(e.target.checked);
         });
 
         // Добавление домена
@@ -79,6 +93,7 @@ class SettingsManager {
 
             // Загружаем остальные настройки
             document.getElementById('service-url').value = settings.serviceUrl;
+            document.getElementById('enable-auto-save').checked = settings.enableAutoSave !== false;
             document.getElementById('save-interval').value = settings.saveInterval;
             document.getElementById('save-only-on-change').checked = settings.saveOnlyOnChange;
             document.getElementById('enable-notifications').checked = settings.enableNotifications;
@@ -202,36 +217,76 @@ class SettingsManager {
         }
     }
 
+    // Функция нормализации интервала сохранения
+    normalizeSaveInterval(interval) {
+        // Преобразуем в число
+        const numInterval = parseInt(interval, 10);
+
+        // Если не число или меньше 0, возвращаем минимальное значение
+        if (isNaN(numInterval) || numInterval < 0) {
+            return this.MIN_SAVE_INTERVAL;
+        }
+
+        // Если 0, отключаем автоматическое сохранение
+        if (numInterval === 0) {
+            return 0;
+        }
+
+        // Ограничиваем минимальным и максимальным значением
+        return Math.max(this.MIN_SAVE_INTERVAL, Math.min(this.MAX_SAVE_INTERVAL, numInterval));
+    }
+
+    toggleAutoSaveControls(enabled) {
+        const saveIntervalInput = document.getElementById('save-interval');
+        const saveOnlyOnChangeInput = document.getElementById('save-only-on-change');
+
+        saveIntervalInput.disabled = !enabled;
+        saveOnlyOnChangeInput.disabled = !enabled;
+
+        if (enabled) {
+            this.updateIntervalDescription();
+        } else {
+            document.getElementById('interval-description').textContent = 'Автоматическое сохранение отключено';
+        }
+    }
+
     updateIntervalDescription() {
         const interval = parseInt(document.getElementById('save-interval').value);
+        const normalizedInterval = this.normalizeSaveInterval(interval);
         const valueSpan = document.getElementById('interval-value');
         const descriptionSpan = document.getElementById('interval-description');
 
-        valueSpan.textContent = interval;
-
-        if (interval === 0) {
-            descriptionSpan.textContent = 'Автоматическое сохранение отключено';
-        } else if (interval < 60) {
-            descriptionSpan.textContent = `Сохранение каждые ${interval} секунд`;
-        } else if (interval < 3600) {
-            const minutes = Math.floor(interval / 60);
-            const seconds = interval % 60;
-            const timeStr = minutes > 0 ? `${minutes}м ${seconds}с` : `${seconds}с`;
-            descriptionSpan.textContent = `Сохранение каждые ${timeStr}`;
+        // Обновляем значение слайдера, если оно было нормализовано
+        if (interval !== normalizedInterval) {
+            document.getElementById('save-interval').value = normalizedInterval;
+            valueSpan.textContent = normalizedInterval;
         } else {
-            const hours = Math.floor(interval / 3600);
-            const minutes = Math.floor((interval % 3600) / 60);
-            const timeStr = hours > 0 ? `${hours}ч ${minutes}м` : `${minutes}м`;
+            valueSpan.textContent = interval;
+        }
+
+        if (normalizedInterval === 0) {
+            descriptionSpan.textContent = 'Автоматическое сохранение отключено';
+        } else if (normalizedInterval < 60) {
+            descriptionSpan.textContent = `Сохранение каждые ${normalizedInterval} секунд`;
+        } else {
+            const minutes = Math.floor(normalizedInterval / 60);
+            const seconds = normalizedInterval % 60;
+            const timeStr = minutes > 0 ? `${minutes}м ${seconds}с` : `${seconds}с`;
             descriptionSpan.textContent = `Сохранение каждые ${timeStr}`;
         }
     }
 
     async saveSettings() {
         try {
+            const rawInterval = parseInt(document.getElementById('save-interval').value);
+            const normalizedInterval = this.normalizeSaveInterval(rawInterval);
+
+            const enableAutoSave = document.getElementById('enable-auto-save').checked;
             const settings = {
                 domains: this.getCurrentDomains(),
                 serviceUrl: document.getElementById('service-url').value.trim(),
-                saveInterval: parseInt(document.getElementById('save-interval').value),
+                enableAutoSave: enableAutoSave,
+                saveInterval: enableAutoSave ? normalizedInterval : 0,
                 saveOnlyOnChange: document.getElementById('save-only-on-change').checked,
                 enableNotifications: document.getElementById('enable-notifications').checked,
                 enableDebug: document.getElementById('enable-debug').checked,
@@ -243,6 +298,11 @@ class SettingsManager {
             if (!validation.isValid) {
                 this.showStatus(validation.message, 'error');
                 return;
+            }
+
+            // Показываем предупреждение, если интервал был нормализован
+            if (rawInterval !== normalizedInterval) {
+                this.showStatus(`Интервал автоматически скорректирован с ${rawInterval} до ${normalizedInterval} секунд`, 'info');
             }
 
             // Сохраняем настройки
@@ -282,10 +342,18 @@ class SettingsManager {
 
 
         // Валидация интервала
-        if (settings.saveInterval < 0 || settings.saveInterval > 3600) {
+        if (settings.saveInterval < 0 || settings.saveInterval > this.MAX_SAVE_INTERVAL) {
             return {
                 isValid: false,
-                message: 'Интервал должен быть от 0 до 3600 секунд'
+                message: `Интервал должен быть от 0 до ${this.MAX_SAVE_INTERVAL} секунд`
+            };
+        }
+
+        // Дополнительная проверка для ненулевых значений
+        if (settings.saveInterval > 0 && settings.saveInterval < this.MIN_SAVE_INTERVAL) {
+            return {
+                isValid: false,
+                message: `Минимальный интервал: ${this.MIN_SAVE_INTERVAL} секунд`
             };
         }
 

@@ -12,7 +12,7 @@ class AutoSaveManager {
     constructor(settingsManager, domainValidator, contentProcessor, httpClient, notificationManager) {
         this.settingsManager = settingsManager;
         this.domainValidator = domainValidator;
-        this.contentProcessor = contentProcessor;
+        this.contentProcessor = contentProcessor; // Может быть null, будет получен через content script
         this.httpClient = httpClient;
         this.notificationManager = notificationManager;
 
@@ -22,6 +22,51 @@ class AutoSaveManager {
         this.isSaving = false;
         this.lastSaveTime = 0;
         this.minSaveInterval = 2000; // Минимальный интервал между сохранениями (2 секунды)
+    }
+
+    /**
+     * Получает контент страницы через content script
+     * @param {number} tabId - ID вкладки
+     * @returns {Promise<Object|null>} Контент страницы или null при ошибке
+     */
+    async getPageContentViaContentScript(tabId) {
+        try {
+            const results = await chrome.scripting.executeScript({
+                target: { tabId: tabId },
+                function: () => {
+                    return {
+                        html: document.documentElement.outerHTML,
+                        url: window.location.href,
+                        title: document.title,
+                        timestamp: new Date().toISOString()
+                    };
+                }
+            });
+
+            return results[0]?.result || null;
+        } catch (error) {
+            logger.error('Error getting page content via content script:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Вычисляет контрольную сумму для контента
+     * @param {Object} content - Контент страницы
+     * @returns {string} Контрольная сумма
+     */
+    calculateChecksum(content) {
+        if (!content || !content.html) return '';
+
+        // Простая контрольная сумма на основе HTML
+        const html = content.html.replace(/\s+/g, ' ').trim();
+        let hash = 0;
+        for (let i = 0; i < html.length; i++) {
+            const char = html.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Convert to 32bit integer
+        }
+        return hash.toString();
     }
 
     /**
@@ -93,11 +138,11 @@ class AutoSaveManager {
             if (!domainMatch) return;
 
             // Получаем содержимое страницы
-            const pageContent = await this.contentProcessor.getPageContent(tab.id);
+            const pageContent = await this.getPageContentViaContentScript(tab.id);
             if (!pageContent) return;
 
             // Вычисляем контрольную сумму для проверки изменений
-            const currentChecksum = await this.contentProcessor.calculateChecksum(pageContent);
+            const currentChecksum = this.calculateChecksum(pageContent);
 
             // Проверяем изменение содержимого по контрольной сумме
             if (saveOnlyOnChange && currentChecksum === this.lastChecksum) {
@@ -164,8 +209,13 @@ class AutoSaveManager {
                 logger.debug('Saving page content to:', serviceUrl);
             }
 
-            // Обрабатываем контент
-            const processedContent = this.contentProcessor.processHtmlContent(content);
+            // Обрабатываем контент (простая обработка без ContentProcessor)
+            const processedContent = {
+                html: content.html,
+                url: content.url,
+                title: content.title,
+                timestamp: content.timestamp
+            };
 
             // Сохраняем через HTTP-клиент
             const result = await this.httpClient.savePageContent(serviceUrl, processedContent, {
@@ -218,10 +268,10 @@ class AutoSaveManager {
 
             // Небольшая задержка для полной загрузки страницы
             setTimeout(async () => {
-                const pageContent = await this.contentProcessor.getPageContent(tabId);
+                const pageContent = await this.getPageContentViaContentScript(tabId);
                 if (pageContent) {
                     // Вычисляем контрольную сумму для проверки изменений
-                    const currentChecksum = await this.contentProcessor.calculateChecksum(pageContent);
+                    const currentChecksum = this.calculateChecksum(pageContent);
 
                     // Проверяем изменение содержимого по контрольной сумме
                     if (saveOnlyOnChange && currentChecksum === this.lastChecksum) {

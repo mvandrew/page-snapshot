@@ -13,13 +13,12 @@ class BackgroundController {
         // Инициализируем модули
         this.settingsManager = new SettingsManager();
         this.domainValidator = new DomainValidator();
-        this.contentProcessor = new ContentProcessor();
         this.httpClient = new HttpClient();
         this.notificationManager = new NotificationManager();
         this.autoSaveManager = new AutoSaveManager(
             this.settingsManager,
             this.domainValidator,
-            this.contentProcessor,
+            null, // contentProcessor будет получен через content script
             this.httpClient,
             this.notificationManager
         );
@@ -47,8 +46,12 @@ class BackgroundController {
      * Инициализирует контроллер
      */
     initialize() {
-        this.setupEventListeners();
-        this.setupErrorHandling();
+        try {
+            this.setupEventListeners();
+            this.setupErrorHandling();
+        } catch (error) {
+            logger.error('Error initializing background controller:', error);
+        }
     }
 
     /**

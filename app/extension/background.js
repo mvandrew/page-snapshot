@@ -2,7 +2,7 @@
 // Модульная архитектура с разделением ответственности
 
 // Загружаем логгер первым
-importScripts('modules/logger.js');
+importScripts('src/modules/shared/logger.js');
 
 // Глобальная обработка ошибок
 self.addEventListener('error', (event) => {
@@ -34,7 +34,6 @@ function checkModulesAvailability() {
     const requiredModules = [
         'SettingsManager',
         'DomainValidator',
-        'ContentProcessor',
         'HttpClient',
         'NotificationManager',
         'AutoSaveManager',
@@ -92,15 +91,14 @@ function initializeFallback() {
 let backgroundController = null;
 
 try {
-    // Загружаем все модули
+    // Загружаем все модули в правильном порядке
     importScripts(
-        'modules/settings-manager.js',
-        'modules/domain-validator.js',
-        'modules/content-processor.js',
-        'modules/http-client.js',
-        'modules/notification-manager.js',
-        'modules/auto-save-manager.js',
-        'modules/background-controller.js'
+        'src/modules/shared/settings-manager.js',
+        'src/modules/shared/domain-validator.js',
+        'src/modules/shared/http-client.js',
+        'src/modules/background/notification-manager.js',
+        'src/modules/background/auto-save-manager.js',
+        'src/modules/background/background-controller.js'
     );
 
     // Проверяем доступность модулей

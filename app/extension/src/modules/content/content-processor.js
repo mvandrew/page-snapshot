@@ -32,7 +32,7 @@ class ContentProcessor {
 
             return results[0]?.result || null;
         } catch (error) {
-            console.error('Error getting page content:', error);
+            logger.error('Error getting page content:', error);
             // Возвращаем базовую информацию о странице при ошибке
             try {
                 const tab = await chrome.tabs.get(tabId);
@@ -43,7 +43,7 @@ class ContentProcessor {
                     timestamp: new Date().toISOString()
                 };
             } catch (tabError) {
-                console.error('Error getting tab info:', tabError);
+                logger.error('Error getting tab info:', tabError);
                 return null;
             }
         }
@@ -88,14 +88,14 @@ class ContentProcessor {
 
             // 6. Ограничиваем размер HTML
             if (processedHtml.length > this.maxHtmlSize) {
-                console.warn(`Page Snapshot: HTML too large (${processedHtml.length} bytes), truncating to ${this.maxHtmlSize} bytes`);
+                logger.warn(`HTML too large (${processedHtml.length} bytes), truncating to ${this.maxHtmlSize} bytes`);
                 processedHtml = processedHtml.substring(0, this.maxHtmlSize) + '... [TRUNCATED]';
             }
 
-            console.log('HTML processed for size optimization');
+            logger.debug('HTML processed for size optimization');
 
         } catch (error) {
-            console.error('Page Snapshot: Error processing HTML:', error);
+            logger.error('Error processing HTML:', error);
             // В случае ошибки возвращаем оригинальный контент
             return content;
         }
@@ -223,7 +223,7 @@ class ContentProcessor {
             const urlObj = new URL(url);
             return urlObj.hostname;
         } catch (error) {
-            console.error('Error extracting domain:', error);
+            logger.error('Error extracting domain:', error);
             return null;
         }
     }

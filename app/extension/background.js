@@ -17,6 +17,7 @@ const defaultSettings = {
 // Переменные для автоматического сохранения
 let saveIntervalId = null;
 let lastPageContent = null;
+let lastChecksum = null;
 
 // Обработка установки расширения
 chrome.runtime.onInstalled.addListener((details) => {
@@ -130,17 +131,25 @@ async function performAutoSave() {
         const pageContent = await getPageContent(tab.id);
         if (!pageContent) return;
 
-        // Проверяем изменение содержимого
-        if (saveOnlyOnChange && pageContent === lastPageContent) {
+        // Вычисляем контрольную сумму для проверки изменений
+        const currentChecksum = await calculateChecksumSync(pageContent);
+
+        // Проверяем изменение содержимого по контрольной сумме
+        if (saveOnlyOnChange && currentChecksum === lastChecksum) {
             if (enableDebug) {
-                console.log('Page content unchanged, skipping save');
+                console.log('Page content unchanged (checksum match), skipping save');
             }
             return;
         }
 
         // Сохраняем содержимое
-        await savePageContent(tab.id, pageContent);
-        lastPageContent = pageContent;
+        const result = await savePageContent(tab.id, pageContent);
+
+        // Обновляем кэш только при успешном сохранении
+        if (result && result.success) {
+            lastPageContent = pageContent;
+            lastChecksum = currentChecksum;
+        }
 
         if (enableDebug) {
             console.log('Auto-save completed');
@@ -149,6 +158,39 @@ async function performAutoSave() {
     } catch (error) {
         console.error('Error in auto-save:', error);
     }
+}
+
+// Вычисление контрольной суммы по алгоритму backend
+function calculateChecksum(pageContent) {
+    // Создаем строку для хэширования из всех важных данных (как в backend)
+    const dataToHash = JSON.stringify({
+        html: pageContent.html,
+        url: pageContent.url
+    });
+
+    // Вычисляем SHA-256 хэш (используем Web Crypto API)
+    const encoder = new TextEncoder();
+    const data = encoder.encode(dataToHash);
+
+    return crypto.subtle.digest('SHA-256', data).then(hashBuffer => {
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    });
+}
+
+// Синхронная версия для использования в условиях
+async function calculateChecksumSync(pageContent) {
+    const dataToHash = JSON.stringify({
+        html: pageContent.html,
+        url: pageContent.url
+    });
+
+    const encoder = new TextEncoder();
+    const data = encoder.encode(dataToHash);
+
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 // Проверка конфигурации расширения
@@ -221,7 +263,7 @@ async function getPageContent(tabId) {
 async function savePageContent(tabId, content) {
     try {
         const settings = await chrome.storage.sync.get(Object.keys(defaultSettings));
-        const { domains, serviceUrl, maxRetries, enableNotifications } = { ...defaultSettings, ...settings };
+        const { domains, serviceUrl, maxRetries, enableNotifications, enableDebug } = { ...defaultSettings, ...settings };
 
         // Проверяем конфигурацию перед сохранением
         if (!isExtensionConfigured(domains, serviceUrl)) {
@@ -250,16 +292,33 @@ async function savePageContent(tabId, content) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
 
-                if (enableNotifications) {
-                    chrome.notifications.create({
-                        type: 'basic',
-                        iconUrl: 'icons/icon48.png',
-                        title: 'Page Snapshot',
-                        message: 'Страница успешно сохранена'
-                    });
+                // Парсим ответ от backend
+                const responseData = await response.json();
+
+                if (enableDebug) {
+                    console.log('Backend response:', responseData);
                 }
 
-                return { success: true, attempt };
+                // Проверяем успешность операции
+                if (responseData.success) {
+                    if (enableNotifications) {
+                        chrome.notifications.create({
+                            type: 'basic',
+                            iconUrl: 'icons/icon48.png',
+                            title: 'Page Snapshot',
+                            message: 'Страница успешно сохранена'
+                        });
+                    }
+
+                    return {
+                        success: true,
+                        attempt,
+                        checksum: responseData.data?.checksum,
+                        id: responseData.data?.id
+                    };
+                } else {
+                    throw new Error(responseData.message || 'Unknown backend error');
+                }
 
             } catch (error) {
                 lastError = error;
@@ -293,8 +352,9 @@ async function savePageContent(tabId, content) {
 // Обработка обновления вкладки
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (changeInfo.status === 'complete' && tab.url) {
-        // Сбрасываем кэш содержимого при обновлении страницы
+        // Сбрасываем кэш содержимого и контрольной суммы при обновлении страницы
         lastPageContent = null;
+        lastChecksum = null;
 
         // Проверяем, нужно ли сохранить страницу сразу
         checkAndSaveOnUpdate(tabId, tab.url);
@@ -305,7 +365,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 async function checkAndSaveOnUpdate(tabId, url) {
     try {
         const settings = await chrome.storage.sync.get(Object.keys(defaultSettings));
-        const { domains, serviceUrl, enableDebug } = { ...defaultSettings, ...settings };
+        const { domains, serviceUrl, saveOnlyOnChange, enableDebug } = { ...defaultSettings, ...settings };
 
         // Проверяем конфигурацию
         if (!isExtensionConfigured(domains, serviceUrl)) {
@@ -322,8 +382,24 @@ async function checkAndSaveOnUpdate(tabId, url) {
         setTimeout(async () => {
             const pageContent = await getPageContent(tabId);
             if (pageContent) {
-                await savePageContent(tabId, pageContent);
-                lastPageContent = pageContent;
+                // Вычисляем контрольную сумму для проверки изменений
+                const currentChecksum = await calculateChecksumSync(pageContent);
+
+                // Проверяем изменение содержимого по контрольной сумме
+                if (saveOnlyOnChange && currentChecksum === lastChecksum) {
+                    if (enableDebug) {
+                        console.log('Page content unchanged (checksum match), skipping save on update');
+                    }
+                    return;
+                }
+
+                const result = await savePageContent(tabId, pageContent);
+
+                // Обновляем кэш только при успешном сохранении
+                if (result && result.success) {
+                    lastPageContent = pageContent;
+                    lastChecksum = currentChecksum;
+                }
             }
         }, 2000);
 

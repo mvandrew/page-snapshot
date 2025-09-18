@@ -33,80 +33,54 @@ chrome.runtime.onInstalled.addListener((details) => {
 
 // Обработка сообщений от content script и popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    switch (request.action) {
-        case 'capturePage':
-            capturePage(sender.tab.id, request.options)
-                .then(result => sendResponse({ success: true, data: result }))
-                .catch(error => sendResponse({ success: false, error: error.message }));
-            return true;
+    // Используем async/await для современного подхода
+    (async () => {
+        try {
+            let result;
 
-        case 'savePageContent':
-            savePageContent(sender.tab.id, request.content)
-                .then(result => sendResponse({ success: true, data: result }))
-                .catch(error => sendResponse({ success: false, error: error.message }));
-            return true;
+            switch (request.action) {
+                // case 'capturePage' удален - теперь только автоматическое сохранение
 
-        case 'getSettings':
-            chrome.storage.sync.get(Object.keys(defaultSettings), (result) => {
-                sendResponse({ ...defaultSettings, ...result });
-            });
-            return true;
+                case 'savePageContent':
+                    result = await savePageContent(sender.tab.id, request.content);
+                    sendResponse({ success: true, data: result });
+                    break;
 
-        case 'saveSettings':
-            chrome.storage.sync.set(request.settings, () => {
-                setupAutoSave(); // Перезапускаем автоматическое сохранение
-                sendResponse({ success: true });
-            });
-            return true;
+                case 'getSettings':
+                    const settings = await chrome.storage.sync.get(Object.keys(defaultSettings));
+                    sendResponse({ ...defaultSettings, ...settings });
+                    break;
 
-        case 'settingsUpdated':
-            setupAutoSave(); // Перезапускаем при обновлении настроек
-            sendResponse({ success: true });
-            return true;
+                case 'saveSettings':
+                    await chrome.storage.sync.set(request.settings);
+                    setupAutoSave(); // Перезапускаем автоматическое сохранение
+                    sendResponse({ success: true });
+                    break;
 
-        case 'checkDomainMatch':
-            checkDomainMatch(request.url)
-                .then(match => sendResponse({ match }))
-                .catch(error => sendResponse({ match: false, error: error.message }));
-            return true;
+                case 'settingsUpdated':
+                    setupAutoSave(); // Перезапускаем при обновлении настроек
+                    sendResponse({ success: true });
+                    break;
 
-        default:
-            sendResponse({ error: 'Unknown action' });
-    }
+                case 'checkDomainMatch':
+                    const match = await checkDomainMatch(request.url);
+                    sendResponse({ match });
+                    break;
+
+                default:
+                    sendResponse({ error: 'Unknown action' });
+            }
+        } catch (error) {
+            console.error('Error handling message:', error);
+            sendResponse({ error: error.message });
+        }
+    })();
+
+    // Возвращаем true для асинхронного ответа (все еще требуется в Manifest V3)
+    return true;
 });
 
-// Функция захвата страницы
-async function capturePage(tabId, options = {}) {
-    try {
-        const { captureFormat = 'png', quality = 0.9 } = options;
-
-        // Захват видимой области страницы
-        const dataUrl = await chrome.tabs.captureVisibleTab({
-            format: captureFormat,
-            quality: quality
-        });
-
-        // Создание имени файла с временной меткой
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const filename = `page-snapshot-${timestamp}.${captureFormat}`;
-
-        // Скачивание файла
-        await chrome.downloads.download({
-            url: dataUrl,
-            filename: filename,
-            saveAs: true
-        });
-
-        return {
-            filename: filename,
-            dataUrl: dataUrl,
-            timestamp: new Date().toISOString()
-        };
-    } catch (error) {
-        console.error('Error capturing page:', error);
-        throw error;
-    }
-}
+// Функция захвата страницы удалена - теперь только автоматическое сохранение содержимого
 
 // Настройка автоматического сохранения
 async function setupAutoSave() {
@@ -140,7 +114,13 @@ async function performAutoSave() {
         const settings = await chrome.storage.sync.get(Object.keys(defaultSettings));
         const { domains, serviceUrl, saveOnlyOnChange, enableDebug } = { ...defaultSettings, ...settings };
 
-        if (!serviceUrl) return; // Нет URL сервиса
+        // Проверяем обязательные настройки
+        if (!isExtensionConfigured(domains, serviceUrl)) {
+            if (enableDebug) {
+                console.log('Extension not configured: missing domains or service URL');
+            }
+            return;
+        }
 
         // Получаем активную вкладку
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -175,9 +155,24 @@ async function performAutoSave() {
     }
 }
 
+// Проверка конфигурации расширения
+function isExtensionConfigured(domains, serviceUrl) {
+    // Проверяем, что задан хотя бы один домен
+    if (!domains || domains.length === 0) {
+        return false;
+    }
+
+    // Проверяем, что задан URL сервиса
+    if (!serviceUrl || serviceUrl.trim() === '') {
+        return false;
+    }
+
+    return true;
+}
+
 // Проверка соответствия домену
 async function checkDomainMatch(url, domains) {
-    if (!domains || domains.length === 0) return true; // Нет ограничений
+    if (!domains || domains.length === 0) return false; // Должны быть заданы домены
 
     try {
         const urlObj = new URL(url);
@@ -230,10 +225,11 @@ async function getPageContent(tabId) {
 async function savePageContent(tabId, content) {
     try {
         const settings = await chrome.storage.sync.get(Object.keys(defaultSettings));
-        const { serviceUrl, serviceMethod, serviceHeaders, maxRetries, enableNotifications } = { ...defaultSettings, ...settings };
+        const { domains, serviceUrl, serviceMethod, serviceHeaders, maxRetries, enableNotifications } = { ...defaultSettings, ...settings };
 
-        if (!serviceUrl) {
-            throw new Error('Service URL not configured');
+        // Проверяем конфигурацию перед сохранением
+        if (!isExtensionConfigured(domains, serviceUrl)) {
+            throw new Error('Extension not configured: missing domains or service URL');
         }
 
         const headers = {
@@ -317,7 +313,13 @@ async function checkAndSaveOnUpdate(tabId, url) {
         const settings = await chrome.storage.sync.get(Object.keys(defaultSettings));
         const { domains, serviceUrl, enableDebug } = { ...defaultSettings, ...settings };
 
-        if (!serviceUrl) return;
+        // Проверяем конфигурацию
+        if (!isExtensionConfigured(domains, serviceUrl)) {
+            if (enableDebug) {
+                console.log('Extension not configured: missing domains or service URL');
+            }
+            return;
+        }
 
         const domainMatch = await checkDomainMatch(url, domains);
         if (!domainMatch) return;

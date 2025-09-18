@@ -71,17 +71,18 @@ document.addEventListener('DOMContentLoaded', function () {
     // Обновление статуса настроек
     function updateSettingsStatus(settings) {
         const statusInfo = [];
+        const isConfigured = isExtensionConfigured(settings.domains, settings.serviceUrl);
 
         if (settings.domains && settings.domains.length > 0) {
             statusInfo.push(`Домены: ${settings.domains.length}`);
         } else {
-            statusInfo.push('Домены: все');
+            statusInfo.push('Домены: не настроены ❌');
         }
 
         if (settings.serviceUrl) {
             statusInfo.push('Сервис: настроен');
         } else {
-            statusInfo.push('Сервис: не настроен');
+            statusInfo.push('Сервис: не настроен ❌');
         }
 
         if (settings.saveInterval > 0) {
@@ -90,8 +91,81 @@ document.addEventListener('DOMContentLoaded', function () {
             statusInfo.push('Автосохранение: отключено');
         }
 
+        // Блокируем кнопки если расширение не настроено
+        updateButtonStates(isConfigured);
+
         // Обновляем информацию о странице с учетом настроек
         updatePageInfoWithSettings(settings);
+    }
+
+    // Проверка конфигурации расширения
+    function isExtensionConfigured(domains, serviceUrl) {
+        return (domains && domains.length > 0) && (serviceUrl && serviceUrl.trim() !== '');
+    }
+
+    // Обновление состояния кнопок
+    function updateButtonStates(isConfigured) {
+        const saveButton = document.getElementById('save-page-btn');
+
+        if (saveButton) {
+            saveButton.disabled = !isConfigured;
+            if (!isConfigured) {
+                saveButton.title = 'Расширение не настроено. Настройте домены и URL сервиса.';
+                saveButton.style.opacity = '0.5';
+            } else {
+                saveButton.title = '';
+                saveButton.style.opacity = '1';
+            }
+        }
+
+        // Показываем предупреждение
+        const warningDiv = document.getElementById('configuration-warning');
+        if (warningDiv) {
+            warningDiv.style.display = isConfigured ? 'none' : 'block';
+        }
+
+        // Обновляем статус автоматического сохранения
+        updateAutoSaveStatus(settings);
+    }
+
+    // Обновление статуса автоматического сохранения
+    function updateAutoSaveStatus(settings) {
+        const statusDiv = document.getElementById('auto-save-status');
+        const descriptionSpan = document.getElementById('status-description');
+
+        if (!statusDiv || !descriptionSpan) return;
+
+        const isConfigured = isExtensionConfigured(settings.domains, settings.serviceUrl);
+
+        if (!isConfigured) {
+            statusDiv.style.display = 'none';
+            return;
+        }
+
+        statusDiv.style.display = 'block';
+
+        if (settings.saveInterval > 0) {
+            const interval = settings.saveInterval;
+            let timeText;
+
+            if (interval < 60) {
+                timeText = `каждые ${interval} секунд`;
+            } else if (interval < 3600) {
+                const minutes = Math.floor(interval / 60);
+                const seconds = interval % 60;
+                timeText = minutes > 0 ? `каждые ${minutes}м ${seconds}с` : `каждые ${seconds}с`;
+            } else {
+                const hours = Math.floor(interval / 3600);
+                const minutes = Math.floor((interval % 3600) / 60);
+                timeText = hours > 0 ? `каждые ${hours}ч ${minutes}м` : `каждые ${minutes}м`;
+            }
+
+            descriptionSpan.textContent = `Активно: ${timeText}`;
+            statusDiv.className = 'status-info status-active';
+        } else {
+            descriptionSpan.textContent = 'Отключено';
+            statusDiv.className = 'status-info status-disabled';
+        }
     }
 
     // Обновление информации о странице с учетом настроек
@@ -117,10 +191,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Настройка обработчиков событий
     function setupEventListeners() {
-        // Кнопки захвата
-        captureBtn.addEventListener('click', () => capturePage('full'));
-        captureVisibleBtn.addEventListener('click', () => capturePage('visible'));
-
         // Кнопка сохранения на сервер
         document.getElementById('save-page-btn').addEventListener('click', savePageManually);
 
@@ -145,56 +215,35 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Функция для ручного сохранения страницы
     function savePageManually() {
-        chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-            if (tabs[0]) {
-                chrome.tabs.sendMessage(tabs[0].id, { action: 'getPageInfo' }, function (response) {
-                    if (response) {
-                        chrome.runtime.sendMessage({
-                            action: 'savePageContent',
-                            content: response
-                        }, function (saveResponse) {
-                            if (saveResponse && saveResponse.success) {
-                                showStatus('Страница сохранена на сервер', 'success');
-                            } else {
-                                showStatus('Ошибка сохранения на сервер', 'error');
-                            }
-                        });
-                    }
-                });
-            }
-        });
-    }
-
-    // Захват страницы
-    function capturePage(type) {
-        const options = {
-            captureFormat: formatSelect.value,
-            quality: parseFloat(qualitySlider.value)
-        };
-
-        // Показываем статус загрузки
-        showStatus('Создание снимка...', 'info');
-
-        // Отправляем запрос в background script
-        chrome.runtime.sendMessage({
-            action: 'capturePage',
-            options: options
-        }, function (response) {
-            if (chrome.runtime.lastError) {
-                showStatus('Ошибка: ' + chrome.runtime.lastError.message, 'error');
+        // Проверяем конфигурацию перед сохранением
+        chrome.runtime.sendMessage({ action: 'getSettings' }, function (settings) {
+            if (!isExtensionConfigured(settings.domains, settings.serviceUrl)) {
+                showStatus('Расширение не настроено. Настройте домены и URL сервиса.', 'error');
                 return;
             }
 
-            if (response && response.success) {
-                showStatus('Снимок сохранен!', 'success');
-
-                // Обновляем статистику
-                updateStats();
-            } else {
-                showStatus('Ошибка при создании снимка', 'error');
-            }
+            chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+                if (tabs[0]) {
+                    chrome.tabs.sendMessage(tabs[0].id, { action: 'getPageInfo' }, function (response) {
+                        if (response) {
+                            chrome.runtime.sendMessage({
+                                action: 'savePageContent',
+                                content: response
+                            }, function (saveResponse) {
+                                if (saveResponse && saveResponse.success) {
+                                    showStatus('Страница сохранена на сервер', 'success');
+                                } else {
+                                    showStatus('Ошибка сохранения на сервер: ' + (saveResponse?.error || 'Неизвестная ошибка'), 'error');
+                                }
+                            });
+                        }
+                    });
+                }
+            });
         });
     }
+
+    // Функция удалена - захват страниц теперь только автоматический
 
     // Сохранение настроек
     function saveSettings() {

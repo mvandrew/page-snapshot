@@ -35,19 +35,25 @@
             </div>
 
             <div class="controls">
-                <button id="capture-btn" class="btn btn-primary">
-                    <span class="btn-icon">📸</span>
-                    Сделать снимок
-                </button>
+                <div id="configuration-warning" class="warning-message" style="display: none;">
+                    <span class="warning-icon">⚠️</span>
+                    <div class="warning-text">
+                        <strong>Расширение не настроено</strong><br>
+                        Настройте домены и URL сервиса для работы расширения
+                    </div>
+                </div>
 
-                <button id="capture-visible-btn" class="btn btn-secondary">
-                    <span class="btn-icon">👁️</span>
-                    Только видимая область
-                </button>
+                <div id="auto-save-status" class="status-info">
+                    <span class="status-icon">⏰</span>
+                    <div class="status-text">
+                        <strong>Автоматическое сохранение</strong><br>
+                        <span id="status-description">Проверка настроек...</span>
+                    </div>
+                </div>
 
                 <button id="save-page-btn" class="btn btn-secondary">
                     <span class="btn-icon">💾</span>
-                    Сохранить на сервер
+                    Сохранить сейчас
                 </button>
 
                 <button id="settings-btn" class="btn btn-outline">

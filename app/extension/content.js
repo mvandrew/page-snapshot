@@ -6,8 +6,8 @@
 
     console.log('Page Snapshot content script loaded');
 
-    // Создание кнопки захвата на странице
-    createCaptureButton();
+    // Проверяем конфигурацию перед созданием кнопки
+    checkConfigurationAndInit();
 
     // Обработка сообщений от popup и background
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -36,75 +36,44 @@
         }
     });
 
-    // Создание кнопки захвата
-    function createCaptureButton() {
-        // Проверяем, не создана ли уже кнопка
-        if (document.getElementById('page-snapshot-btn')) {
-            return;
-        }
+    // Проверка конфигурации и инициализация
+    function checkConfigurationAndInit() {
+        chrome.runtime.sendMessage({ action: 'getSettings' }, function (response) {
+            if (response) {
+                const isConfigured = isExtensionConfigured(response.domains, response.serviceUrl);
 
-        const button = document.createElement('div');
-        button.id = 'page-snapshot-btn';
-        button.innerHTML = '📸';
-        button.title = 'Сделать снимок страницы';
-
-        // Стили кнопки
-        Object.assign(button.style, {
-            position: 'fixed',
-            top: '20px',
-            right: '20px',
-            width: '50px',
-            height: '50px',
-            backgroundColor: '#4285f4',
-            color: 'white',
-            borderRadius: '50%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '24px',
-            cursor: 'pointer',
-            zIndex: '10000',
-            boxShadow: '0 2px 10px rgba(0,0,0,0.3)',
-            transition: 'all 0.3s ease',
-            userSelect: 'none'
+                if (isConfigured) {
+                    // Проверяем соответствие текущего домена
+                    checkDomainMatch(response.domains);
+                } else {
+                    console.log('Page Snapshot: Extension not configured');
+                }
+            }
         });
-
-        // Обработчик клика
-        button.addEventListener('click', () => {
-            capturePage();
-        });
-
-        // Эффекты при наведении
-        button.addEventListener('mouseenter', () => {
-            button.style.transform = 'scale(1.1)';
-            button.style.backgroundColor = '#3367d6';
-        });
-
-        button.addEventListener('mouseleave', () => {
-            button.style.transform = 'scale(1)';
-            button.style.backgroundColor = '#4285f4';
-        });
-
-        document.body.appendChild(button);
     }
 
-    // Функция захвата страницы
-    function capturePage() {
-        // Отправляем сообщение в background script
+    // Проверка конфигурации расширения
+    function isExtensionConfigured(domains, serviceUrl) {
+        return (domains && domains.length > 0) && (serviceUrl && serviceUrl.trim() !== '');
+    }
+
+    // Проверка соответствия домену
+    function checkDomainMatch(domains) {
         chrome.runtime.sendMessage({
-            action: 'capturePage',
-            options: {
-                captureFormat: 'png',
-                quality: 0.9
-            }
-        }, (response) => {
-            if (response && response.success) {
-                showNotification('Снимок сохранен!', 'success');
+            action: 'checkDomainMatch',
+            url: window.location.href
+        }, function (response) {
+            if (response && response.match) {
+                console.log('Page Snapshot: Domain matches, auto-save will work');
             } else {
-                showNotification('Ошибка при создании снимка', 'error');
+                console.log('Page Snapshot: Current domain does not match configured domains');
             }
         });
     }
+
+    // Функции создания кнопок удалены - теперь только автоматическое сохранение
+
+    // Функция захвата страницы удалена - теперь только автоматическое сохранение
 
     // Получение информации о странице
     function getPageInfo() {

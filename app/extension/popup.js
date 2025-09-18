@@ -28,11 +28,27 @@ document.addEventListener('DOMContentLoaded', function () {
     // Загрузка информации о странице
     function loadPageInfo() {
         chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+            if (chrome.runtime.lastError) {
+                console.error('Error querying tabs:', chrome.runtime.lastError);
+                return;
+            }
+
             if (tabs[0]) {
                 const tab = tabs[0];
 
                 // Отправляем запрос в content script для получения детальной информации
                 chrome.tabs.sendMessage(tab.id, { action: 'getPageInfo' }, function (response) {
+                    if (chrome.runtime.lastError) {
+                        console.log('Content script not available, using fallback info');
+                        // Fallback к базовой информации
+                        document.getElementById('page-url').textContent =
+                            tab.url.length > 50 ? tab.url.substring(0, 50) + '...' : tab.url;
+                        document.getElementById('page-title').textContent =
+                            tab.title.length > 30 ? tab.title.substring(0, 30) + '...' : tab.title;
+                        document.getElementById('page-size').textContent = 'Недоступно';
+                        return;
+                    }
+
                     if (response) {
                         document.getElementById('page-url').textContent =
                             response.url.length > 50 ? response.url.substring(0, 50) + '...' : response.url;
@@ -56,6 +72,12 @@ document.addEventListener('DOMContentLoaded', function () {
     // Загрузка настроек
     function loadSettings() {
         chrome.runtime.sendMessage({ action: 'getSettings' }, function (response) {
+            if (chrome.runtime.lastError) {
+                console.error('Error getting settings:', chrome.runtime.lastError);
+                showStatus('Ошибка загрузки настроек', 'error');
+                return;
+            }
+
             if (response) {
                 formatSelect.value = response.captureFormat || 'png';
                 qualitySlider.value = response.quality || 0.9;
@@ -171,6 +193,11 @@ document.addEventListener('DOMContentLoaded', function () {
     // Обновление информации о странице с учетом настроек
     function updatePageInfoWithSettings(settings) {
         chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+            if (chrome.runtime.lastError) {
+                console.error('Error querying tabs:', chrome.runtime.lastError);
+                return;
+            }
+
             if (tabs[0]) {
                 const tab = tabs[0];
 
@@ -179,6 +206,11 @@ document.addEventListener('DOMContentLoaded', function () {
                     action: 'checkDomainMatch',
                     url: tab.url
                 }, function (response) {
+                    if (chrome.runtime.lastError) {
+                        console.log('Error checking domain match:', chrome.runtime.lastError);
+                        return;
+                    }
+
                     if (response && response.match) {
                         document.getElementById('page-size').textContent += ' ✓';
                     } else if (settings.domains && settings.domains.length > 0) {
@@ -192,44 +224,113 @@ document.addEventListener('DOMContentLoaded', function () {
     // Настройка обработчиков событий
     function setupEventListeners() {
         // Кнопка сохранения на сервер
-        document.getElementById('save-page-btn').addEventListener('click', savePageManually);
+        const savePageBtn = document.getElementById('save-page-btn');
+        if (savePageBtn) {
+            savePageBtn.addEventListener('click', savePageManually);
+        }
 
         // Кнопка настроек
-        settingsBtn.addEventListener('click', () => {
-            chrome.runtime.openOptionsPage();
-        });
+        if (settingsBtn) {
+            settingsBtn.addEventListener('click', () => {
+                try {
+                    chrome.runtime.openOptionsPage();
+                } catch (error) {
+                    console.error('Error opening options page:', error);
+                    showStatus('Ошибка открытия настроек', 'error');
+                }
+            });
+        }
 
         // Слайдер качества
-        qualitySlider.addEventListener('input', function () {
-            qualityValue.textContent = Math.round(this.value * 100) + '%';
-        });
+        if (qualitySlider && qualityValue) {
+            qualitySlider.addEventListener('input', function () {
+                qualityValue.textContent = Math.round(this.value * 100) + '%';
+            });
+        }
 
         // Кнопки настроек
-        saveSettingsBtn.addEventListener('click', saveSettings);
-        resetSettingsBtn.addEventListener('click', resetSettings);
+        if (saveSettingsBtn) {
+            saveSettingsBtn.addEventListener('click', saveSettings);
+        }
+        if (resetSettingsBtn) {
+            resetSettingsBtn.addEventListener('click', resetSettings);
+        }
 
         // Ссылки в футере
-        document.getElementById('help-link').addEventListener('click', showHelp);
-        document.getElementById('feedback-link').addEventListener('click', showFeedback);
+        const helpLink = document.getElementById('help-link');
+        if (helpLink) {
+            helpLink.addEventListener('click', showHelp);
+        }
+        const feedbackLink = document.getElementById('feedback-link');
+        if (feedbackLink) {
+            feedbackLink.addEventListener('click', showFeedback);
+        }
     }
 
     // Функция для ручного сохранения страницы
     function savePageManually() {
         // Проверяем конфигурацию перед сохранением
         chrome.runtime.sendMessage({ action: 'getSettings' }, function (settings) {
+            if (chrome.runtime.lastError) {
+                console.error('Error getting settings:', chrome.runtime.lastError);
+                showStatus('Ошибка загрузки настроек', 'error');
+                return;
+            }
+
             if (!isExtensionConfigured(settings.domains, settings.serviceUrl)) {
                 showStatus('Расширение не настроено. Настройте домены и URL сервиса.', 'error');
                 return;
             }
 
             chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+                if (chrome.runtime.lastError) {
+                    console.error('Error querying tabs:', chrome.runtime.lastError);
+                    showStatus('Ошибка получения информации о вкладке', 'error');
+                    return;
+                }
+
                 if (tabs[0]) {
                     chrome.tabs.sendMessage(tabs[0].id, { action: 'getPageInfo' }, function (response) {
+                        if (chrome.runtime.lastError) {
+                            console.log('Content script not available, using basic page info');
+                            // Используем базовую информацию о странице
+                            const basicInfo = {
+                                html: '<html>Content not available</html>',
+                                url: tabs[0].url,
+                                title: tabs[0].title,
+                                timestamp: new Date().toISOString()
+                            };
+
+                            chrome.runtime.sendMessage({
+                                action: 'savePageContent',
+                                content: basicInfo
+                            }, function (saveResponse) {
+                                if (chrome.runtime.lastError) {
+                                    console.error('Error saving page:', chrome.runtime.lastError);
+                                    showStatus('Ошибка сохранения: ' + chrome.runtime.lastError.message, 'error');
+                                    return;
+                                }
+
+                                if (saveResponse && saveResponse.success) {
+                                    showStatus('Страница сохранена на сервер', 'success');
+                                } else {
+                                    showStatus('Ошибка сохранения на сервер: ' + (saveResponse?.error || 'Неизвестная ошибка'), 'error');
+                                }
+                            });
+                            return;
+                        }
+
                         if (response) {
                             chrome.runtime.sendMessage({
                                 action: 'savePageContent',
                                 content: response
                             }, function (saveResponse) {
+                                if (chrome.runtime.lastError) {
+                                    console.error('Error saving page:', chrome.runtime.lastError);
+                                    showStatus('Ошибка сохранения: ' + chrome.runtime.lastError.message, 'error');
+                                    return;
+                                }
+
                                 if (saveResponse && saveResponse.success) {
                                     showStatus('Страница сохранена на сервер', 'success');
                                 } else {
@@ -245,6 +346,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Функция удалена - захват страниц теперь только автоматический
 
+    // Переключение панели настроек
+    function toggleSettings() {
+        if (settingsPanel) {
+            settingsPanel.style.display = settingsPanel.style.display === 'none' ? 'block' : 'none';
+        }
+    }
+
     // Сохранение настроек
     function saveSettings() {
         const settings = {
@@ -254,6 +362,12 @@ document.addEventListener('DOMContentLoaded', function () {
         };
 
         chrome.storage.sync.set(settings, function () {
+            if (chrome.runtime.lastError) {
+                console.error('Error saving settings:', chrome.runtime.lastError);
+                showStatus('Ошибка сохранения настроек', 'error');
+                return;
+            }
+
             showStatus('Настройки сохранены', 'success');
 
             // Скрываем панель настроек через 1 секунду
@@ -267,6 +381,12 @@ document.addEventListener('DOMContentLoaded', function () {
     function resetSettings() {
         if (confirm('Сбросить все настройки к значениям по умолчанию?')) {
             chrome.storage.sync.clear(function () {
+                if (chrome.runtime.lastError) {
+                    console.error('Error clearing settings:', chrome.runtime.lastError);
+                    showStatus('Ошибка сброса настроек', 'error');
+                    return;
+                }
+
                 loadSettings();
                 showStatus('Настройки сброшены', 'info');
             });
@@ -275,13 +395,24 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Показ статуса
     function showStatus(message, type) {
-        statusMessage.textContent = message;
-        statusMessage.className = `status-message show ${type}`;
+        if (!statusMessage) {
+            console.warn('Status message element not found');
+            return;
+        }
 
-        // Автоматически скрываем через 3 секунды
-        setTimeout(() => {
-            statusMessage.classList.remove('show');
-        }, 3000);
+        try {
+            statusMessage.textContent = message;
+            statusMessage.className = `status-message show ${type}`;
+
+            // Автоматически скрываем через 3 секунды
+            setTimeout(() => {
+                if (statusMessage) {
+                    statusMessage.classList.remove('show');
+                }
+            }, 3000);
+        } catch (error) {
+            console.error('Error showing status:', error);
+        }
     }
 
     // Обновление статистики
@@ -292,16 +423,26 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Показ справки
     function showHelp() {
-        chrome.tabs.create({
-            url: 'https://github.com/your-repo/page-snapshot/wiki'
-        });
+        try {
+            chrome.tabs.create({
+                url: 'https://github.com/your-repo/page-snapshot/wiki'
+            });
+        } catch (error) {
+            console.error('Error opening help:', error);
+            showStatus('Ошибка открытия справки', 'error');
+        }
     }
 
     // Показ формы обратной связи
     function showFeedback() {
-        chrome.tabs.create({
-            url: 'https://github.com/your-repo/page-snapshot/issues'
-        });
+        try {
+            chrome.tabs.create({
+                url: 'https://github.com/your-repo/page-snapshot/issues'
+            });
+        } catch (error) {
+            console.error('Error opening feedback:', error);
+            showStatus('Ошибка открытия обратной связи', 'error');
+        }
     }
 
     // Обработка сообщений от background script
@@ -314,12 +455,30 @@ document.addEventListener('DOMContentLoaded', function () {
     // Обработка ошибок
     window.addEventListener('error', function (event) {
         console.error('Popup error:', event.error);
-        showStatus('Произошла ошибка', 'error');
+        // Проверяем, что statusMessage существует перед использованием
+        if (statusMessage) {
+            showStatus('Произошла ошибка', 'error');
+        }
     });
 
     // Обработка необработанных промисов
     window.addEventListener('unhandledrejection', function (event) {
         console.error('Unhandled promise rejection:', event.reason);
-        showStatus('Произошла ошибка', 'error');
+        // Проверяем, что statusMessage существует перед использованием
+        if (statusMessage) {
+            showStatus('Произошла ошибка', 'error');
+        }
     });
+
+    // Дополнительная обработка ошибок Chrome API
+    const originalConsoleError = console.error;
+    console.error = function (...args) {
+        // Проверяем, содержит ли ошибка runtime.lastError
+        if (args.length > 0 && args[0] && typeof args[0] === 'object' && args[0].message &&
+            args[0].message.includes('Could not establish connection')) {
+            // Подавляем эту конкретную ошибку, так как она уже обработана
+            return;
+        }
+        originalConsoleError.apply(console, args);
+    };
 });

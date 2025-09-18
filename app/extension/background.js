@@ -1,5 +1,14 @@
 // Service Worker для Chrome Extension Manifest V3
 
+// Глобальная обработка ошибок
+self.addEventListener('error', (event) => {
+    console.error('Service Worker error:', event.error);
+});
+
+self.addEventListener('unhandledrejection', (event) => {
+    console.error('Service Worker unhandled rejection:', event.reason);
+});
+
 // Настройки по умолчанию
 const defaultSettings = {
     domains: [],
@@ -39,19 +48,33 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
             switch (request.action) {
                 case 'savePageContent':
+                    if (!sender.tab || !sender.tab.id) {
+                        sendResponse({ error: 'Invalid tab information' });
+                        return;
+                    }
                     result = await savePageContent(sender.tab.id, request.content);
                     sendResponse({ success: true, data: result });
                     break;
 
                 case 'getSettings':
-                    const settings = await chrome.storage.sync.get(Object.keys(defaultSettings));
-                    sendResponse({ ...defaultSettings, ...settings });
+                    try {
+                        const settings = await chrome.storage.sync.get(Object.keys(defaultSettings));
+                        sendResponse({ ...defaultSettings, ...settings });
+                    } catch (error) {
+                        console.error('Error getting settings:', error);
+                        sendResponse({ ...defaultSettings });
+                    }
                     break;
 
                 case 'saveSettings':
-                    await chrome.storage.sync.set(request.settings);
-                    setupAutoSave(); // Перезапускаем автоматическое сохранение
-                    sendResponse({ success: true });
+                    try {
+                        await chrome.storage.sync.set(request.settings);
+                        setupAutoSave(); // Перезапускаем автоматическое сохранение
+                        sendResponse({ success: true });
+                    } catch (error) {
+                        console.error('Error saving settings:', error);
+                        sendResponse({ error: 'Failed to save settings' });
+                    }
                     break;
 
                 case 'settingsUpdated':
@@ -60,8 +83,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     break;
 
                 case 'checkDomainMatch':
-                    const match = await checkDomainMatch(request.url);
-                    sendResponse({ match });
+                    try {
+                        const match = await checkDomainMatch(request.url);
+                        sendResponse({ match });
+                    } catch (error) {
+                        console.error('Error checking domain match:', error);
+                        sendResponse({ match: false });
+                    }
                     break;
 
                 default:
@@ -255,7 +283,19 @@ async function getPageContent(tabId) {
         return results[0]?.result || null;
     } catch (error) {
         console.error('Error getting page content:', error);
-        return null;
+        // Возвращаем базовую информацию о странице при ошибке
+        try {
+            const tab = await chrome.tabs.get(tabId);
+            return {
+                html: '<html>Content not available</html>',
+                url: tab.url,
+                title: tab.title,
+                timestamp: new Date().toISOString()
+            };
+        } catch (tabError) {
+            console.error('Error getting tab info:', tabError);
+            return null;
+        }
     }
 }
 
@@ -351,14 +391,27 @@ async function savePageContent(tabId, content) {
 
 // Обработка обновления вкладки
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-    if (changeInfo.status === 'complete' && tab.url) {
-        // Сбрасываем кэш содержимого и контрольной суммы при обновлении страницы
-        lastPageContent = null;
-        lastChecksum = null;
+    try {
+        if (changeInfo.status === 'complete' && tab.url) {
+            // Сбрасываем кэш содержимого и контрольной суммы при обновлении страницы
+            lastPageContent = null;
+            lastChecksum = null;
 
-        // Проверяем, нужно ли сохранить страницу сразу
-        checkAndSaveOnUpdate(tabId, tab.url);
+            // Проверяем, нужно ли сохранить страницу сразу
+            checkAndSaveOnUpdate(tabId, tab.url);
+        }
+    } catch (error) {
+        console.error('Error in tab update handler:', error);
     }
+});
+
+// Обработка ошибок Chrome API
+chrome.runtime.onStartup.addListener(() => {
+    console.log('Extension started');
+});
+
+chrome.runtime.onSuspend.addListener(() => {
+    console.log('Extension suspended');
 });
 
 // Проверка и сохранение при обновлении страницы

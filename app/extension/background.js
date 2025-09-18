@@ -1,13 +1,16 @@
 // Service Worker для Chrome Extension Manifest V3
 // Модульная архитектура с разделением ответственности
 
+// Загружаем логгер первым
+importScripts('modules/logger.js');
+
 // Глобальная обработка ошибок
 self.addEventListener('error', (event) => {
-    console.error('Service Worker error:', event.error);
+    logger.error('Service Worker error:', event.error);
 });
 
 self.addEventListener('unhandledrejection', (event) => {
-    console.error('Service Worker unhandled rejection:', event.reason);
+    logger.error('Service Worker unhandled rejection:', event.reason);
 });
 
 // Настройки по умолчанию для fallback
@@ -41,7 +44,7 @@ function checkModulesAvailability() {
     const missingModules = requiredModules.filter(module => !self[module]);
 
     if (missingModules.length > 0) {
-        console.error('Missing modules:', missingModules);
+        logger.error('Missing modules:', missingModules);
         return false;
     }
 
@@ -50,16 +53,16 @@ function checkModulesAvailability() {
 
 // Функция fallback инициализации
 function initializeFallback() {
-    console.log('Page Snapshot: Using fallback initialization');
+    logger.info('Using fallback initialization');
 
     // Обработка установки расширения
     chrome.runtime.onInstalled.addListener((details) => {
         if (details.reason === 'install') {
             chrome.storage.sync.set(defaultSettings, () => {
                 if (chrome.runtime.lastError) {
-                    console.error('Error setting default settings:', chrome.runtime.lastError);
+                    logger.error('Error setting default settings:', chrome.runtime.lastError);
                 } else {
-                    console.log('Default settings set successfully');
+                    logger.info('Default settings set successfully');
                 }
             });
         }
@@ -103,13 +106,13 @@ try {
     // Проверяем доступность модулей
     if (checkModulesAvailability()) {
         backgroundController = new self.BackgroundController();
-        console.log('Page Snapshot: Background controller initialized successfully');
+        logger.info('Background controller initialized successfully');
     } else {
         throw new Error('Required modules not available');
     }
 
 } catch (error) {
-    console.error('Page Snapshot: Failed to initialize background controller:', error);
+    logger.error('Failed to initialize background controller:', error);
     initializeFallback();
 }
 

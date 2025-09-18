@@ -3,6 +3,8 @@
  * Отвечает за загрузку, сохранение, миграцию и валидацию настроек
  */
 
+// Логгер уже должен быть загружен в background.js
+
 // Настройки по умолчанию
 const DEFAULT_SETTINGS = {
     domains: [],
@@ -66,14 +68,14 @@ class SettingsManager {
                 mergedSettings.saveInterval = this.normalizeSaveInterval(mergedSettings.saveInterval);
 
                 if (originalInterval !== mergedSettings.saveInterval) {
-                    console.log('Save interval normalized during load');
+                    logger.debug('Save interval normalized during load');
                 }
             }
 
             return mergedSettings;
         } catch (error) {
-            console.error('Page Snapshot: Error loading settings:', error);
-            console.error('Page Snapshot: Error stack:', error.stack);
+            logger.error('Error loading settings:', error);
+            logger.error('Error stack:', error.stack);
             return { ...this.defaultSettings };
         }
     }
@@ -99,14 +101,14 @@ class SettingsManager {
                 normalizedSettings.saveInterval = this.normalizeSaveInterval(normalizedSettings.saveInterval);
 
                 if (originalInterval !== normalizedSettings.saveInterval) {
-                    console.log('Save interval normalized on save');
+                    logger.debug('Save interval normalized on save');
                 }
             }
 
             await chrome.storage.sync.set(normalizedSettings);
             return true;
         } catch (error) {
-            console.error('Error saving settings:', error);
+            logger.error('Error saving settings:', error);
             return false;
         }
     }
@@ -147,7 +149,7 @@ class SettingsManager {
                     migratedSettings.saveInterval = this.normalizeSaveInterval(migratedSettings.saveInterval);
 
                     if (originalInterval !== migratedSettings.saveInterval) {
-                        console.log('Save interval normalized during migration');
+                        logger.debug('Save interval normalized during migration');
                     }
                 }
 
@@ -158,7 +160,7 @@ class SettingsManager {
                 await chrome.storage.sync.set(migratedSettings);
             }
         } catch (error) {
-            console.error('Page Snapshot: Error migrating settings:', error);
+            logger.error('Error migrating settings:', error);
         }
     }
 
@@ -175,7 +177,7 @@ class SettingsManager {
             }
             return false;
         } catch (error) {
-            console.error('Page Snapshot: Error restoring settings from backup:', error);
+            logger.error('Error restoring settings from backup:', error);
             return false;
         }
     }
@@ -258,7 +260,7 @@ class SettingsManager {
         }
 
         if (missingFields.length > 0) {
-            console.log('Missing fields, using defaults:', missingFields);
+            logger.debug('Missing fields, using defaults:', missingFields);
         }
 
         return ensuredSettings;

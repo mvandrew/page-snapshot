@@ -3,6 +3,8 @@
  * Отвечает за показ уведомлений пользователю
  */
 
+// Логгер уже должен быть загружен в background.js
+
 /**
  * Класс для управления уведомлениями
  */
@@ -214,7 +216,7 @@ class NotificationManager {
         try {
             chrome.notifications.create(options);
         } catch (error) {
-            console.error('Error showing notification:', error);
+            logger.error('Error showing notification:', error);
         }
     }
 
@@ -228,7 +230,7 @@ class NotificationManager {
                 chrome.notifications.clear(id);
             }
         } catch (error) {
-            console.error('Error clearing notifications:', error);
+            logger.error('Error clearing notifications:', error);
         }
     }
 
@@ -251,7 +253,7 @@ class NotificationManager {
             }
             return false;
         } catch (error) {
-            console.error('Error requesting notification permission:', error);
+            logger.error('Error requesting notification permission:', error);
             return false;
         }
     }

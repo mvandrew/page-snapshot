@@ -3,6 +3,8 @@
  * Управляет всеми модулями и обрабатывает события Chrome Extension
  */
 
+// Логгер уже должен быть загружен в background.js
+
 /**
  * Класс-координатор для background script
  */
@@ -85,11 +87,11 @@ class BackgroundController {
      */
     setupErrorHandling() {
         self.addEventListener('error', (event) => {
-            console.error('Service Worker error:', event.error);
+            logger.error('Service Worker error:', event.error);
         });
 
         self.addEventListener('unhandledrejection', (event) => {
-            console.error('Service Worker unhandled rejection:', event.reason);
+            logger.error('Service Worker unhandled rejection:', event.reason);
         });
     }
 
@@ -102,17 +104,17 @@ class BackgroundController {
             if (details.reason === 'install') {
                 // Инициализация настроек по умолчанию только при первой установке
                 await chrome.storage.sync.set(this.defaultSettings);
-                console.log('Default settings initialized');
+                logger.info('Default settings initialized');
             } else if (details.reason === 'update') {
                 // При обновлении мигрируем настройки
                 await this.settingsManager.migrateSettings();
-                console.log('Settings migrated');
+                logger.info('Settings migrated');
             }
 
             // Настройка автоматического сохранения
             await this.autoSaveManager.setupAutoSave();
         } catch (error) {
-            console.error('Error handling installation:', error);
+            logger.error('Error handling installation:', error);
         }
     }
 
@@ -156,7 +158,7 @@ class BackgroundController {
                     sendResponse({ error: 'Unknown action' });
             }
         } catch (error) {
-            console.error('Page Snapshot: Error handling message:', error);
+            logger.error('Error handling message:', error);
             sendResponse({ error: error.message });
         }
     }
@@ -179,7 +181,7 @@ class BackgroundController {
                     tabId = tab.id;
                 }
             } catch (error) {
-                console.error('Error getting active tab:', error);
+                logger.error('Error getting active tab:', error);
             }
         }
 
@@ -199,7 +201,7 @@ class BackgroundController {
             const settings = await this.settingsManager.loadSettings();
             return settings;
         } catch (error) {
-            console.error('Error getting settings:', error);
+            logger.error('Error getting settings:', error);
             return { ...this.defaultSettings };
         }
     }
@@ -217,7 +219,7 @@ class BackgroundController {
             }
             return { success };
         } catch (error) {
-            console.error('Error saving settings:', error);
+            logger.error('Error saving settings:', error);
             return { error: 'Failed to save settings' };
         }
     }
@@ -231,7 +233,7 @@ class BackgroundController {
             await this.autoSaveManager.restart(); // Перезапускаем при обновлении настроек
             return { success: true };
         } catch (error) {
-            console.error('Error handling settings update:', error);
+            logger.error('Error handling settings update:', error);
             return { error: 'Failed to update settings' };
         }
     }
@@ -247,7 +249,7 @@ class BackgroundController {
             const match = await this.domainValidator.checkDomainMatch(request.url, settings.domains);
             return { match };
         } catch (error) {
-            console.error('Error checking domain match:', error);
+            logger.error('Error checking domain match:', error);
             return { match: false };
         }
     }
@@ -268,7 +270,7 @@ class BackgroundController {
                 await this.autoSaveManager.checkAndSaveOnUpdate(tabId, tab.url);
             }
         } catch (error) {
-            console.error('Error in tab update handler:', error);
+            logger.error('Error in tab update handler:', error);
         }
     }
 
@@ -283,7 +285,7 @@ class BackgroundController {
             // Настройка автоматического сохранения при запуске
             await this.autoSaveManager.setupAutoSave();
         } catch (error) {
-            console.error('Error handling startup:', error);
+            logger.error('Error handling startup:', error);
         }
     }
 
@@ -295,7 +297,7 @@ class BackgroundController {
             // Очищаем интервал при приостановке
             this.autoSaveManager.stop();
         } catch (error) {
-            console.error('Error handling suspend:', error);
+            logger.error('Error handling suspend:', error);
         }
     }
 
@@ -322,9 +324,9 @@ class BackgroundController {
     async restart() {
         try {
             await this.autoSaveManager.restart();
-            console.log('Background controller restarted');
+            logger.info('Background controller restarted');
         } catch (error) {
-            console.error('Error restarting background controller:', error);
+            logger.error('Error restarting background controller:', error);
         }
     }
 }

@@ -3,6 +3,8 @@
  * Отвечает за отправку запросов к backend сервису
  */
 
+// Логгер уже должен быть загружен в background.js
+
 /**
  * Класс для работы с HTTP-запросами
  */
@@ -41,7 +43,7 @@ class HttpClient {
                     const response = await this.makeRequest(serviceUrl, payload);
 
                     if (enableDebug) {
-                        console.log('Backend response received:', response);
+                        logger.debug('Backend response received:', response);
                     }
 
                     // Проверяем успешность операции
@@ -62,7 +64,7 @@ class HttpClient {
 
                 } catch (error) {
                     lastError = error;
-                    console.error(`Save attempt ${attempt} failed:`, error);
+                    logger.error(`Save attempt ${attempt} failed:`, error);
 
                     if (attempt < maxRetries) {
                         // Ждем перед следующей попыткой (экспоненциальная задержка)
@@ -75,7 +77,7 @@ class HttpClient {
             throw lastError;
 
         } catch (error) {
-            console.error('Error saving page content:', error);
+            logger.error('Error saving page content:', error);
 
             if (enableNotifications) {
                 this.showErrorNotification(error.message);
@@ -147,7 +149,7 @@ class HttpClient {
             });
             return true;
         } catch (error) {
-            console.error('Service health check failed:', error);
+            logger.error('Service health check failed:', error);
             return false;
         }
     }

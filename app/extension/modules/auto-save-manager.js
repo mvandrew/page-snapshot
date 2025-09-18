@@ -3,6 +3,8 @@
  * Отвечает за автоматическое сохранение страниц по расписанию
  */
 
+// Логгер уже должен быть загружен в background.js
+
 /**
  * Класс для управления автоматическим сохранением
  */
@@ -39,7 +41,7 @@ class AutoSaveManager {
             } = settings;
 
             if (enableDebug) {
-                console.log('Setting up auto-save:', { enableAutoSave, saveInterval });
+                logger.debug('Setting up auto-save:', { enableAutoSave, saveInterval });
             }
 
             if (enableAutoSave && saveInterval > 0) {
@@ -47,12 +49,12 @@ class AutoSaveManager {
                     await this.performAutoSave();
                 }, saveInterval * 1000);
 
-                console.log('Auto-save enabled with interval:', saveInterval);
+                logger.info('Auto-save enabled with interval:', saveInterval);
             } else {
-                console.log('Auto-save disabled');
+                logger.info('Auto-save disabled');
             }
         } catch (error) {
-            console.error('Error setting up auto-save:', error);
+            logger.error('Error setting up auto-save:', error);
         }
     }
 
@@ -71,13 +73,13 @@ class AutoSaveManager {
             } = settings;
 
             if (enableDebug) {
-                console.log('Performing auto-save check');
+                logger.debug('Performing auto-save check');
             }
 
             // Проверяем обязательные настройки
             if (!this.settingsManager.isExtensionConfigured(domains, serviceUrl)) {
                 if (enableDebug) {
-                    console.log('Extension not configured for auto-save');
+                    logger.debug('Extension not configured for auto-save');
                 }
                 return;
             }
@@ -100,7 +102,7 @@ class AutoSaveManager {
             // Проверяем изменение содержимого по контрольной сумме
             if (saveOnlyOnChange && currentChecksum === this.lastChecksum) {
                 if (enableDebug) {
-                    console.log('Page content unchanged, skipping save');
+                    logger.debug('Page content unchanged, skipping save');
                 }
                 return;
             }
@@ -114,16 +116,16 @@ class AutoSaveManager {
                 this.lastChecksum = currentChecksum;
             } else if (result && result.error) {
                 if (enableDebug) {
-                    console.log('Save skipped:', result.error);
+                    logger.debug('Save skipped:', result.error);
                 }
             }
 
             if (enableDebug) {
-                console.log('Auto-save completed');
+                logger.debug('Auto-save completed');
             }
 
         } catch (error) {
-            console.error('Error in auto-save:', error);
+            logger.error('Error in auto-save:', error);
         }
     }
 
@@ -159,7 +161,7 @@ class AutoSaveManager {
             } = settings;
 
             if (enableDebug) {
-                console.log('Saving page content to:', serviceUrl);
+                logger.debug('Saving page content to:', serviceUrl);
             }
 
             // Обрабатываем контент
@@ -175,7 +177,7 @@ class AutoSaveManager {
             return result;
 
         } catch (error) {
-            console.error('Error saving page content:', error);
+            logger.error('Error saving page content:', error);
             throw error;
         } finally {
             // Сбрасываем флаг сохранения в любом случае
@@ -200,13 +202,13 @@ class AutoSaveManager {
             } = settings;
 
             if (enableDebug) {
-                console.log('Checking save on page update');
+                logger.debug('Checking save on page update');
             }
 
             // Проверяем конфигурацию
             if (!this.settingsManager.isExtensionConfigured(domains, serviceUrl)) {
                 if (enableDebug) {
-                    console.log('Extension not configured for save on update');
+                    logger.debug('Extension not configured for save on update');
                 }
                 return;
             }
@@ -224,7 +226,7 @@ class AutoSaveManager {
                     // Проверяем изменение содержимого по контрольной сумме
                     if (saveOnlyOnChange && currentChecksum === this.lastChecksum) {
                         if (enableDebug) {
-                            console.log('Page content unchanged, skipping save on update');
+                            logger.debug('Page content unchanged, skipping save on update');
                         }
                         return;
                     }
@@ -240,7 +242,7 @@ class AutoSaveManager {
             }, 2000);
 
         } catch (error) {
-            console.error('Error in checkAndSaveOnUpdate:', error);
+            logger.error('Error in checkAndSaveOnUpdate:', error);
         }
     }
 
@@ -290,7 +292,7 @@ class AutoSaveManager {
     stop() {
         this.clearInterval();
         this.resetCache();
-        console.log('Auto-save stopped');
+        logger.info('Auto-save stopped');
     }
 
     /**
@@ -300,7 +302,7 @@ class AutoSaveManager {
     async restart() {
         this.stop();
         await this.setupAutoSave();
-        console.log('Auto-save restarted');
+        logger.info('Auto-save restarted');
     }
 }
 

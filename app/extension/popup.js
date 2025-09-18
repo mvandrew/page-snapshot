@@ -55,11 +55,63 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Загрузка настроек
     function loadSettings() {
-        chrome.storage.sync.get(['captureFormat', 'quality', 'autoCapture'], function (result) {
-            formatSelect.value = result.captureFormat || 'png';
-            qualitySlider.value = result.quality || 0.9;
-            qualityValue.textContent = Math.round((result.quality || 0.9) * 100) + '%';
-            autoCaptureCheckbox.checked = result.autoCapture || false;
+        chrome.runtime.sendMessage({ action: 'getSettings' }, function (response) {
+            if (response) {
+                formatSelect.value = response.captureFormat || 'png';
+                qualitySlider.value = response.quality || 0.9;
+                qualityValue.textContent = Math.round((response.quality || 0.9) * 100) + '%';
+                autoCaptureCheckbox.checked = response.autoCapture || false;
+
+                // Показываем статус настроек
+                updateSettingsStatus(response);
+            }
+        });
+    }
+
+    // Обновление статуса настроек
+    function updateSettingsStatus(settings) {
+        const statusInfo = [];
+
+        if (settings.domains && settings.domains.length > 0) {
+            statusInfo.push(`Домены: ${settings.domains.length}`);
+        } else {
+            statusInfo.push('Домены: все');
+        }
+
+        if (settings.serviceUrl) {
+            statusInfo.push('Сервис: настроен');
+        } else {
+            statusInfo.push('Сервис: не настроен');
+        }
+
+        if (settings.saveInterval > 0) {
+            statusInfo.push(`Автосохранение: ${settings.saveInterval}с`);
+        } else {
+            statusInfo.push('Автосохранение: отключено');
+        }
+
+        // Обновляем информацию о странице с учетом настроек
+        updatePageInfoWithSettings(settings);
+    }
+
+    // Обновление информации о странице с учетом настроек
+    function updatePageInfoWithSettings(settings) {
+        chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+            if (tabs[0]) {
+                const tab = tabs[0];
+
+                // Проверяем соответствие домену
+                chrome.runtime.sendMessage({
+                    action: 'checkDomainMatch',
+                    url: tab.url
+                }, function (response) {
+                    if (response && response.match) {
+                        document.getElementById('page-size').textContent += ' ✓';
+                    } else if (settings.domains && settings.domains.length > 0) {
+                        document.getElementById('page-size').textContent += ' ✗';
+                    }
+                });
+            }
         });
     }
 
@@ -69,8 +121,13 @@ document.addEventListener('DOMContentLoaded', function () {
         captureBtn.addEventListener('click', () => capturePage('full'));
         captureVisibleBtn.addEventListener('click', () => capturePage('visible'));
 
+        // Кнопка сохранения на сервер
+        document.getElementById('save-page-btn').addEventListener('click', savePageManually);
+
         // Кнопка настроек
-        settingsBtn.addEventListener('click', toggleSettings);
+        settingsBtn.addEventListener('click', () => {
+            chrome.runtime.openOptionsPage();
+        });
 
         // Слайдер качества
         qualitySlider.addEventListener('input', function () {
@@ -86,11 +143,26 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('feedback-link').addEventListener('click', showFeedback);
     }
 
-    // Переключение панели настроек
-    function toggleSettings() {
-        const isVisible = settingsPanel.style.display !== 'none';
-        settingsPanel.style.display = isVisible ? 'none' : 'block';
-        settingsBtn.textContent = isVisible ? '⚙️ Настройки' : '✕ Закрыть';
+    // Функция для ручного сохранения страницы
+    function savePageManually() {
+        chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+            if (tabs[0]) {
+                chrome.tabs.sendMessage(tabs[0].id, { action: 'getPageInfo' }, function (response) {
+                    if (response) {
+                        chrome.runtime.sendMessage({
+                            action: 'savePageContent',
+                            content: response
+                        }, function (saveResponse) {
+                            if (saveResponse && saveResponse.success) {
+                                showStatus('Страница сохранена на сервер', 'success');
+                            } else {
+                                showStatus('Ошибка сохранения на сервер', 'error');
+                            }
+                        });
+                    }
+                });
+            }
+        });
     }
 
     // Захват страницы

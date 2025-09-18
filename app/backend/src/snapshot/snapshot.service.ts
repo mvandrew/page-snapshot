@@ -75,16 +75,12 @@ export class SnapshotService {
             // Создаем папку, если она не существует
             await this.ensureDirectoryExists(storagePath);
 
-            // Путь к файлам для данного снимка
-            const snapshotDir = path.join(storagePath, id);
-            await this.ensureDirectoryExists(snapshotDir);
-
             // Проверяем, нужно ли обновлять файлы
-            const shouldUpdate = await this.shouldUpdateSnapshot(snapshotDir, checksum);
+            const shouldUpdate = await this.shouldUpdateSnapshot(storagePath, checksum);
 
             if (shouldUpdate) {
                 // Сохраняем HTML файл
-                const htmlPath = path.join(snapshotDir, 'index.html');
+                const htmlPath = path.join(storagePath, 'index.html');
                 await fs.promises.writeFile(htmlPath, snapshotData.content.html, 'utf8');
 
                 // Создаем объект с метаданными (без HTML)
@@ -100,14 +96,14 @@ export class SnapshotService {
                 };
 
                 // Сохраняем JSON файл с метаданными
-                const jsonPath = path.join(snapshotDir, 'data.json');
+                const jsonPath = path.join(storagePath, 'data.json');
                 await fs.promises.writeFile(jsonPath, JSON.stringify(metadata, null, 2), 'utf8');
 
-                this.logger.log(`Снимок сохранен: ${snapshotDir}`);
+                this.logger.log(`Снимок сохранен: ${storagePath}`);
                 this.logger.debug(`HTML файл: ${htmlPath}`);
                 this.logger.debug(`JSON файл: ${jsonPath}`);
             } else {
-                this.logger.log(`Снимок не изменился, пропускаем сохранение: ${snapshotDir}`);
+                this.logger.log(`Снимок не изменился, пропускаем сохранение: ${storagePath}`);
             }
 
         } catch (error) {

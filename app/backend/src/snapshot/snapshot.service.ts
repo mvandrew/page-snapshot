@@ -55,10 +55,7 @@ export class SnapshotService {
         // Создаем строку для хэширования из всех важных данных
         const dataToHash = JSON.stringify({
             html: snapshotData.content.html,
-            url: snapshotData.content.url,
-            title: snapshotData.content.title,
-            timestamp: snapshotData.content.timestamp,
-            userAgent: snapshotData.userAgent
+            url: snapshotData.content.url
         });
 
         // Вычисляем SHA-256 хэш

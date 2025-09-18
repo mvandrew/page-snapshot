@@ -5,6 +5,11 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Настройка лимитов для больших payload
+  const requestSizeLimit = process.env.REQUEST_SIZE_LIMIT || '50mb';
+  app.use(require('express').json({ limit: requestSizeLimit }));
+  app.use(require('express').urlencoded({ limit: requestSizeLimit, extended: true }));
+
   // Включаем глобальную валидацию
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true,
@@ -21,5 +26,6 @@ async function bootstrap() {
 
   await app.listen(process.env.PORT ?? 3000);
   console.log(`🚀 Сервер запущен на порту ${process.env.PORT ?? 3000}`);
+  console.log(`📦 Лимит размера запроса: ${requestSizeLimit}`);
 }
 bootstrap();

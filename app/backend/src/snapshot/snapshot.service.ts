@@ -1,9 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { CreateSnapshotDto } from './dto/create-snapshot.dto';
+import { FileStorageService } from '../shared/services/file-storage.service';
 import * as crypto from 'crypto';
-import * as fs from 'fs';
-import * as path from 'path';
 
 export interface ProcessedSnapshot {
     id: string;
@@ -15,7 +13,7 @@ export interface ProcessedSnapshot {
 export class SnapshotService {
     private readonly logger = new Logger(SnapshotService.name);
 
-    constructor(private readonly configService: ConfigService) { }
+    constructor(private readonly fileStorageService: FileStorageService) { }
 
     async processSnapshot(snapshotData: CreateSnapshotDto): Promise<ProcessedSnapshot> {
         const id = this.generateId();
@@ -69,19 +67,19 @@ export class SnapshotService {
 
     private async saveSnapshotToFiles(snapshotData: CreateSnapshotDto, id: string, checksum: string): Promise<void> {
         try {
-            // Получаем путь к папке сохранения из переменной окружения
-            const storagePath = this.configService.get<string>('SNAPSHOT_STORAGE_PATH', './storage/snapshots');
+            // Получаем путь к папке сохранения
+            const storagePath = this.fileStorageService.getStoragePath();
 
             // Создаем папку, если она не существует
-            await this.ensureDirectoryExists(storagePath);
+            await this.fileStorageService.ensureDirectoryExists(storagePath);
 
             // Проверяем, нужно ли обновлять файлы
-            const shouldUpdate = await this.shouldUpdateSnapshot(storagePath, checksum);
+            const shouldUpdate = await this.shouldUpdateSnapshot(checksum);
 
             if (shouldUpdate) {
                 // Сохраняем HTML файл
-                const htmlPath = path.join(storagePath, 'index.html');
-                await fs.promises.writeFile(htmlPath, snapshotData.content.html, 'utf8');
+                const htmlPath = this.fileStorageService.createFilePath('index.html');
+                await this.fileStorageService.writeFile(htmlPath, snapshotData.content.html);
 
                 // Создаем объект с метаданными (без HTML)
                 const metadata = {
@@ -96,8 +94,8 @@ export class SnapshotService {
                 };
 
                 // Сохраняем JSON файл с метаданными
-                const jsonPath = path.join(storagePath, 'data.json');
-                await fs.promises.writeFile(jsonPath, JSON.stringify(metadata, null, 2), 'utf8');
+                const jsonPath = this.fileStorageService.createFilePath('data.json');
+                await this.fileStorageService.writeFile(jsonPath, JSON.stringify(metadata, null, 2));
 
                 this.logger.log(`Снимок сохранен: ${storagePath}`);
                 this.logger.debug(`HTML файл: ${htmlPath}`);
@@ -112,20 +110,10 @@ export class SnapshotService {
         }
     }
 
-    private async ensureDirectoryExists(dirPath: string): Promise<void> {
+    private async shouldUpdateSnapshot(newChecksum: string): Promise<boolean> {
         try {
-            await fs.promises.access(dirPath);
-        } catch {
-            // Папка не существует, создаем её
-            await fs.promises.mkdir(dirPath, { recursive: true });
-            this.logger.debug(`Создана папка: ${dirPath}`);
-        }
-    }
-
-    private async shouldUpdateSnapshot(snapshotDir: string, newChecksum: string): Promise<boolean> {
-        try {
-            const jsonPath = path.join(snapshotDir, 'data.json');
-            const jsonData = await fs.promises.readFile(jsonPath, 'utf8');
+            const jsonPath = this.fileStorageService.createFilePath('data.json');
+            const jsonData = await this.fileStorageService.readFile(jsonPath);
             const existingData = JSON.parse(jsonData);
 
             // Сравниваем контрольные суммы

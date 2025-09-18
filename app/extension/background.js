@@ -234,8 +234,6 @@ async function savePageContent(tabId, content) {
 
         const payload = {
             content: content,
-            url: content.url,
-            timestamp: new Date().toISOString(),
             userAgent: navigator.userAgent
         };
 

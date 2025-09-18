@@ -20,7 +20,7 @@ export class ContentDto {
 }
 
 export class CreateSnapshotDto {
-    @IsObject() // sdf
+    @IsObject()
     @ValidateNested()
     @Type(() => ContentDto)
     content: ContentDto;

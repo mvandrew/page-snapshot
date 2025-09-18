@@ -33,7 +33,13 @@ chrome.runtime.onInstalled.addListener((details) => {
     console.log('Page Snapshot extension installed:', details);
 
     // Инициализация настроек по умолчанию
-    chrome.storage.sync.set(defaultSettings);
+    chrome.storage.sync.set(defaultSettings, () => {
+        if (chrome.runtime.lastError) {
+            console.error('Error setting default settings:', chrome.runtime.lastError);
+        } else {
+            console.log('Default settings initialized');
+        }
+    });
 
     // Настройка автоматического сохранения
     setupAutoSave();
@@ -59,7 +65,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 case 'getSettings':
                     try {
                         const settings = await chrome.storage.sync.get(Object.keys(defaultSettings));
-                        sendResponse({ ...defaultSettings, ...settings });
+                        const mergedSettings = { ...defaultSettings, ...settings };
+
+                        // Отладочная информация
+                        if (mergedSettings.enableDebug) {
+                            console.log('Page Snapshot: Getting settings:', mergedSettings);
+                        }
+
+                        sendResponse(mergedSettings);
                     } catch (error) {
                         console.error('Error getting settings:', error);
                         sendResponse({ ...defaultSettings });
@@ -109,6 +122,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 // Настройка автоматического сохранения
 async function setupAutoSave() {
+    console.log('Page Snapshot: Setting up auto-save...');
+
     // Очищаем предыдущий интервал
     if (saveIntervalId) {
         clearInterval(saveIntervalId);
@@ -117,16 +132,25 @@ async function setupAutoSave() {
 
     try {
         const settings = await chrome.storage.sync.get(Object.keys(defaultSettings));
-        const { saveInterval, enableDebug } = { ...defaultSettings, ...settings };
+        const { saveInterval, enableDebug, domains, serviceUrl } = { ...defaultSettings, ...settings };
+
+        // Отладочная информация
+        console.log('Page Snapshot: Setup auto-save:', {
+            saveInterval: saveInterval,
+            domains: domains,
+            serviceUrl: serviceUrl,
+            isConfigured: isExtensionConfigured(domains, serviceUrl),
+            rawSettings: settings
+        });
 
         if (saveInterval > 0) {
             saveIntervalId = setInterval(async () => {
                 await performAutoSave();
             }, saveInterval * 1000);
 
-            if (enableDebug) {
-                console.log(`Auto-save enabled with interval: ${saveInterval}s`);
-            }
+            console.log(`Page Snapshot: Auto-save enabled with interval: ${saveInterval}s`);
+        } else {
+            console.log('Page Snapshot: Auto-save disabled (interval = 0)');
         }
     } catch (error) {
         console.error('Error setting up auto-save:', error);
@@ -139,10 +163,24 @@ async function performAutoSave() {
         const settings = await chrome.storage.sync.get(Object.keys(defaultSettings));
         const { domains, serviceUrl, saveOnlyOnChange, enableDebug } = { ...defaultSettings, ...settings };
 
+        // Отладочная информация
+        if (enableDebug) {
+            console.log('Page Snapshot: Current settings:', {
+                domains: domains,
+                serviceUrl: serviceUrl,
+                saveOnlyOnChange: saveOnlyOnChange
+            });
+        }
+
         // Проверяем обязательные настройки
         if (!isExtensionConfigured(domains, serviceUrl)) {
             if (enableDebug) {
-                console.log('Extension not configured: missing domains or service URL');
+                console.log('Page Snapshot: Extension not configured:', {
+                    domains: domains,
+                    serviceUrl: serviceUrl,
+                    domainsLength: domains ? domains.length : 'undefined',
+                    serviceUrlLength: serviceUrl ? serviceUrl.length : 'undefined'
+                });
             }
             return;
         }
@@ -238,21 +276,32 @@ function isExtensionConfigured(domains, serviceUrl) {
 
 // Проверка соответствия домену
 async function checkDomainMatch(url, domains) {
-    if (!domains || domains.length === 0) return false; // Должны быть заданы домены
+    if (!domains || domains.length === 0) {
+        console.log('Page Snapshot: No domains configured for matching');
+        return false; // Должны быть заданы домены
+    }
 
     try {
         const urlObj = new URL(url);
         const hostname = urlObj.hostname;
 
+        console.log('Page Snapshot: Checking domain match:', {
+            url: url,
+            hostname: hostname,
+            domains: domains
+        });
+
         for (const domain of domains) {
             try {
                 const regex = new RegExp(domain);
                 if (regex.test(hostname) || regex.test(url)) {
+                    console.log('Page Snapshot: Domain match found:', domain);
                     return true;
                 }
             } catch (e) {
                 // Если не регулярное выражение, проверяем как обычную строку
                 if (hostname.includes(domain) || url.includes(domain)) {
+                    console.log('Page Snapshot: Domain match found (string):', domain);
                     return true;
                 }
             }
@@ -305,8 +354,25 @@ async function savePageContent(tabId, content) {
         const settings = await chrome.storage.sync.get(Object.keys(defaultSettings));
         const { domains, serviceUrl, maxRetries, enableNotifications, enableDebug } = { ...defaultSettings, ...settings };
 
+        // Отладочная информация
+        if (enableDebug) {
+            console.log('Page Snapshot: Save page content:', {
+                domains: domains,
+                serviceUrl: serviceUrl,
+                isConfigured: isExtensionConfigured(domains, serviceUrl)
+            });
+        }
+
         // Проверяем конфигурацию перед сохранением
         if (!isExtensionConfigured(domains, serviceUrl)) {
+            if (enableDebug) {
+                console.log('Page Snapshot: Extension not configured for save:', {
+                    domains: domains,
+                    serviceUrl: serviceUrl,
+                    domainsLength: domains ? domains.length : 'undefined',
+                    serviceUrlLength: serviceUrl ? serviceUrl.length : 'undefined'
+                });
+            }
             throw new Error('Extension not configured: missing domains or service URL');
         }
 
@@ -420,10 +486,25 @@ async function checkAndSaveOnUpdate(tabId, url) {
         const settings = await chrome.storage.sync.get(Object.keys(defaultSettings));
         const { domains, serviceUrl, saveOnlyOnChange, enableDebug } = { ...defaultSettings, ...settings };
 
+        // Отладочная информация
+        if (enableDebug) {
+            console.log('Page Snapshot: Check and save on update:', {
+                url: url,
+                domains: domains,
+                serviceUrl: serviceUrl,
+                isConfigured: isExtensionConfigured(domains, serviceUrl)
+            });
+        }
+
         // Проверяем конфигурацию
         if (!isExtensionConfigured(domains, serviceUrl)) {
             if (enableDebug) {
-                console.log('Extension not configured: missing domains or service URL');
+                console.log('Page Snapshot: Extension not configured:', {
+                    domains: domains,
+                    serviceUrl: serviceUrl,
+                    domainsLength: domains ? domains.length : 'undefined',
+                    serviceUrlLength: serviceUrl ? serviceUrl.length : 'undefined'
+                });
             }
             return;
         }

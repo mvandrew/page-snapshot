@@ -114,7 +114,9 @@ function normalizeDomains(domains) {
 // Универсальная функция загрузки настроек с восстановлением
 async function loadSettingsWithFallback() {
     try {
+        console.log('Page Snapshot: Loading settings from chrome.storage.sync');
         const settings = await chrome.storage.sync.get(Object.keys(defaultSettings));
+        console.log('Page Snapshot: Raw settings from storage:', settings);
 
         // Если настройки пустые, пытаемся восстановить из резервной копии
         if (!settings || Object.keys(settings).length === 0) {
@@ -124,11 +126,14 @@ async function loadSettingsWithFallback() {
                 console.log('Page Snapshot: Settings restored from backup');
                 // Повторно получаем настройки после восстановления
                 const restoredSettings = await chrome.storage.sync.get(Object.keys(defaultSettings));
-                return { ...defaultSettings, ...restoredSettings };
+                console.log('Page Snapshot: Restored settings:', restoredSettings);
+                return ensureAllSettingsFields({ ...defaultSettings, ...restoredSettings });
             }
         }
 
-        const mergedSettings = { ...defaultSettings, ...settings };
+        // Принудительно добавляем все поля из defaultSettings
+        const mergedSettings = ensureAllSettingsFields({ ...defaultSettings, ...settings });
+        console.log('Page Snapshot: Merged settings:', mergedSettings);
 
         // Нормализуем домены
         if (mergedSettings.domains) {
@@ -138,8 +143,36 @@ async function loadSettingsWithFallback() {
         return mergedSettings;
     } catch (error) {
         console.error('Page Snapshot: Error loading settings:', error);
-        return defaultSettings;
+        console.error('Page Snapshot: Error stack:', error.stack);
+        console.log('Page Snapshot: Returning default settings due to error');
+        return { ...defaultSettings };
     }
+}
+
+// Функция для гарантированного наличия всех полей настроек
+function ensureAllSettingsFields(settings) {
+    const ensuredSettings = { ...defaultSettings };
+
+    // Копируем только существующие поля из переданных настроек
+    for (const [key, value] of Object.entries(settings)) {
+        if (key in defaultSettings && value !== undefined) {
+            ensuredSettings[key] = value;
+        }
+    }
+
+    // Логируем отсутствующие поля
+    const missingFields = [];
+    for (const key of Object.keys(defaultSettings)) {
+        if (!(key in settings) || settings[key] === undefined) {
+            missingFields.push(key);
+        }
+    }
+
+    if (missingFields.length > 0) {
+        console.log('Page Snapshot: Missing fields, using defaults:', missingFields);
+    }
+
+    return ensuredSettings;
 }
 
 // Переменные для автоматического сохранения
@@ -173,6 +206,12 @@ chrome.runtime.onInstalled.addListener((details) => {
 
 // Обработка сообщений от content script и popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    console.log('Page Snapshot: Message received:', {
+        action: request.action,
+        sender: sender.tab ? { tabId: sender.tab.id, url: sender.tab.url } : 'no tab',
+        hasContent: !!request.content
+    });
+
     // Используем async/await для современного подхода
     (async () => {
         try {
@@ -180,11 +219,36 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
             switch (request.action) {
                 case 'savePageContent':
-                    if (!sender.tab || !sender.tab.id) {
+                    console.log('Page Snapshot: Processing savePageContent message');
+
+                    // Получаем tabId из sender или из активной вкладки
+                    let tabId = null;
+                    if (sender.tab && sender.tab.id) {
+                        tabId = sender.tab.id;
+                        console.log('Page Snapshot: Using sender tabId:', tabId);
+                    } else {
+                        console.log('Page Snapshot: No sender tab, getting active tab');
+                        // Если tabId не доступен, получаем активную вкладку
+                        try {
+                            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+                            if (tab && tab.id) {
+                                tabId = tab.id;
+                                console.log('Page Snapshot: Got active tabId:', tabId);
+                            }
+                        } catch (error) {
+                            console.error('Error getting active tab:', error);
+                        }
+                    }
+
+                    if (!tabId) {
+                        console.error('Page Snapshot: No valid tabId found');
                         sendResponse({ error: 'Invalid tab information' });
                         return;
                     }
-                    result = await savePageContent(sender.tab.id, request.content);
+
+                    console.log('Page Snapshot: About to call savePageContent with tabId:', tabId);
+                    result = await savePageContent(tabId, request.content);
+                    console.log('Page Snapshot: savePageContent completed:', result);
                     sendResponse({ success: true, data: result });
                     break;
 
@@ -237,10 +301,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     break;
 
                 default:
+                    console.log('Page Snapshot: Unknown action:', request.action);
                     sendResponse({ error: 'Unknown action' });
             }
         } catch (error) {
-            console.error('Error handling message:', error);
+            console.error('Page Snapshot: Error handling message:', error);
+            console.error('Page Snapshot: Error stack:', error.stack);
             sendResponse({ error: error.message });
         }
     })();
@@ -263,7 +329,12 @@ async function setupAutoSave() {
 
     try {
         const settings = await loadSettingsWithFallback();
-        const { saveInterval, enableDebug, domains, serviceUrl } = settings;
+        const {
+            saveInterval = 0,
+            enableDebug = false,
+            domains = [],
+            serviceUrl = ''
+        } = settings;
 
         // Отладочная информация
         console.log('Page Snapshot: Setup auto-save:', {
@@ -292,7 +363,12 @@ async function setupAutoSave() {
 async function performAutoSave() {
     try {
         const settings = await loadSettingsWithFallback();
-        const { domains, serviceUrl, saveOnlyOnChange, enableDebug } = settings;
+        const {
+            domains = [],
+            serviceUrl = '',
+            saveOnlyOnChange = true,
+            enableDebug = false
+        } = settings;
 
         // Отладочная информация
         if (enableDebug) {
@@ -449,7 +525,7 @@ async function checkDomainMatch(url, domains) {
 
                 if (hostname === cleanDomain || hostname.endsWith('.' + cleanDomain) ||
                     hostname.includes(cleanDomain) || url.includes(cleanDomain)) {
-                    console.log('Page Snapshot: Domain match found (string):', cleanDomain);
+                    console.log('---Page Snapshot: Domain match found (string):', cleanDomain);
                     return true;
                 }
             }
@@ -499,17 +575,46 @@ async function getPageContent(tabId) {
 // Сохранение содержимого страницы на сервер
 async function savePageContent(tabId, content) {
     try {
+        console.log('Page Snapshot: savePageContent called with tabId:', tabId);
+        console.log('Page Snapshot: Content received:', {
+            hasHtml: !!content?.html,
+            hasUrl: !!content?.url,
+            htmlLength: content?.html?.length || 0
+        });
+
         const settings = await loadSettingsWithFallback();
-        const { domains, serviceUrl, maxRetries, enableNotifications, enableDebug } = settings;
+        console.log('Page Snapshot: Settings loaded in savePageContent:', settings);
+
+        // Принудительно проверяем наличие всех полей
+        const safeSettings = ensureAllSettingsFields(settings);
+        console.log('Page Snapshot: Safe settings for savePageContent:', safeSettings);
+
+        const {
+            domains,
+            serviceUrl,
+            maxRetries,
+            enableNotifications,
+            enableDebug
+        } = safeSettings;
+
+        console.log('Page Snapshot: Destructured settings:', {
+            domains,
+            serviceUrl,
+            maxRetries,
+            enableNotifications,
+            enableDebug
+        });
 
         // Отладочная информация
-        if (enableDebug) {
-            console.log('Page Snapshot: Save page content:', {
-                domains: domains,
-                serviceUrl: serviceUrl,
-                isConfigured: isExtensionConfigured(domains, serviceUrl)
-            });
-        }
+        console.log('Page Snapshot: Save page content settings:', {
+            domains: domains,
+            serviceUrl: serviceUrl,
+            maxRetries: maxRetries,
+            enableNotifications: enableNotifications,
+            enableDebug: enableDebug,
+            isConfigured: isExtensionConfigured(domains, serviceUrl),
+            rawSettings: settings
+        });
 
         // Проверяем конфигурацию перед сохранением
         if (!isExtensionConfigured(domains, serviceUrl)) {
@@ -645,7 +750,12 @@ chrome.runtime.onSuspend.addListener(() => {
 async function checkAndSaveOnUpdate(tabId, url) {
     try {
         const settings = await loadSettingsWithFallback();
-        const { domains, serviceUrl, saveOnlyOnChange, enableDebug } = settings;
+        const {
+            domains = [],
+            serviceUrl = '',
+            saveOnlyOnChange = true,
+            enableDebug = false
+        } = settings;
 
         // Отладочная информация
         if (enableDebug) {

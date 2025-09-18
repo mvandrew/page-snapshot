@@ -283,9 +283,9 @@
     // Получение информации о странице
     function getPageInfo() {
         const pageInfo = {
+            html: document.documentElement.outerHTML,
             url: window.location.href,
             title: document.title,
-            domain: window.location.hostname,
             timestamp: new Date().toISOString(),
             viewport: {
                 width: window.innerWidth,
@@ -299,11 +299,12 @@
 
         console.log('Page Snapshot: Page info collected:', {
             url: pageInfo.url,
-            hostname: pageInfo.domain,
+            hostname: window.location.hostname,
             title: pageInfo.title,
             protocol: window.location.protocol,
             port: window.location.port,
-            pathname: window.location.pathname
+            pathname: window.location.pathname,
+            htmlSize: pageInfo.html.length
         });
 
         return pageInfo;

@@ -230,10 +230,32 @@ body {
     display: flex;
     gap: 12px;
     align-items: flex-start;
+    margin-top: 12px;
+    padding: 16px;
+    background: #f8f9fa;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
 }
 
 .domain-input {
     flex: 1;
+    padding: 12px 16px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 14px;
+    transition: all 0.2s ease;
+    background: white;
+    color: #1f2937;
+}
+
+.domain-input:focus {
+    outline: none;
+    border-color: #4285f4;
+    box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.1);
+}
+
+.domain-input::placeholder {
+    color: #9ca3af;
 }
 
 .domain-help {
@@ -542,6 +564,7 @@ body {
 
     .add-domain {
         flex-direction: column;
+        padding: 12px;
     }
 
     .domain-input {
@@ -627,6 +650,26 @@ body {
     .domain-help code {
         background: #6b7280;
         color: #ffffff;
+    }
+
+    .domain-input {
+        background: #4a4a4a;
+        border-color: #6b7280;
+        color: #ffffff;
+    }
+
+    .domain-input:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    }
+
+    .domain-input::placeholder {
+        color: #9ca3af;
+    }
+
+    .add-domain {
+        background: #4a4a4a;
+        border-color: #6b7280;
     }
 
     .range-labels {

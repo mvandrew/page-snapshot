@@ -1,0 +1,77 @@
+/* Стили для content script */
+
+/* Кнопка захвата страницы */
+#page-snapshot-btn {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#page-snapshot-btn:hover {
+    transform: scale(1.1) !important;
+    box-shadow: 0 4px 20px rgba(66, 133, 244, 0.4) !important;
+}
+
+#page-snapshot-btn:active {
+    transform: scale(0.95) !important;
+}
+
+/* Подсветка элементов */
+[data-page-snapshot-highlight="true"] {
+    outline: 3px solid #ff0000 !important;
+    outline-offset: 2px !important;
+    transition: outline 0.2s ease !important;
+}
+
+/* Уведомления */
+.page-snapshot-notification {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+}
+
+/* Анимации */
+@keyframes page-snapshot-fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes page-snapshot-slideIn {
+    from {
+        transform: translateX(100%);
+    }
+
+    to {
+        transform: translateX(0);
+    }
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    #page-snapshot-btn {
+        width: 45px !important;
+        height: 45px !important;
+        font-size: 20px !important;
+        top: 15px !important;
+        right: 15px !important;
+    }
+}
+
+/* Темная тема */
+@media (prefers-color-scheme: dark) {
+    #page-snapshot-btn {
+        background-color: #1a73e8 !important;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5) !important;
+    }
+
+    #page-snapshot-btn:hover {
+        background-color: #1557b0 !important;
+        box-shadow: 0 4px 20px rgba(26, 115, 232, 0.4) !important;
+    }
+}

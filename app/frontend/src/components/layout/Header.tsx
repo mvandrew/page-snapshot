@@ -28,7 +28,7 @@ export function Header({ onRefresh, isRefreshing = false }: HeaderProps) {
         };
 
         checkServerStatus();
-        const interval = setInterval(checkServerStatus, 30000); // Проверяем каждые 30 секунд
+        const interval = setInterval(checkServerStatus, 60000); // Проверяем каждые 60 секунд
 
         return () => clearInterval(interval);
     }, []);

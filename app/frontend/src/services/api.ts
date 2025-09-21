@@ -20,6 +20,16 @@ class ApiService {
             });
 
             if (!response.ok) {
+                // 404 означает, что нет данных для конвертации - это нормальная ситуация
+                if (response.status === 404) {
+                    const error: ApiError = {
+                        status: 404,
+                        message: 'Нет данных для конвертации. Убедитесь, что Chrome расширение сохранило HTML файл.',
+                        details: 'Сервер работает, но не найден HTML файл для конвертации в markdown',
+                    };
+                    throw error;
+                }
+
                 const errorData = await this.parseErrorResponse(response);
                 const error: ApiError = {
                     status: response.status,
@@ -78,11 +88,15 @@ class ApiService {
      */
     async checkHealth(): Promise<boolean> {
         try {
+            // Используем GET запрос вместо HEAD, чтобы получить полный ответ
             const response = await fetch(`${this.baseUrl}/api/md`, {
-                method: 'HEAD',
+                method: 'GET',
                 signal: AbortSignal.timeout(5000), // 5 секунд таймаут
             });
-            return response.ok;
+
+            // Сервер доступен, если он отвечает (даже с ошибкой 404)
+            // 404 означает, что сервер работает, но нет данных
+            return response.status !== 0;
         } catch {
             return false;
         }

@@ -1,0 +1,129 @@
+import { useState, useCallback, useEffect } from 'react';
+import type { MarkdownState, MarkdownContent } from '../types/markdown';
+import { apiService } from '../services/api';
+
+/**
+ * Хук для управления состоянием markdown контента
+ */
+export function useMarkdown() {
+  const [state, setState] = useState<MarkdownState>({
+    content: null,
+    isLoading: false,
+    error: null,
+    lastSuccessUpdate: null,
+  });
+
+  /**
+   * Загружает markdown контент с сервера
+   */
+  const loadMarkdown = useCallback(async () => {
+    setState(prev => ({ ...prev, isLoading: true, error: null }));
+
+    try {
+      const content = await apiService.getMarkdown();
+      const now = new Date();
+
+      // Если content === null, это означает 404 - нет данных для конвертации
+      if (content === null) {
+        setState({
+          content: null,
+          isLoading: false,
+          error: null,
+          lastSuccessUpdate: null,
+        });
+        // Очищаем кеш при отсутствии данных
+        localStorage.removeItem('markdown-cache');
+        return;
+      }
+
+      const markdownContent: MarkdownContent = {
+        content,
+        lastUpdated: now,
+        size: content.length,
+      };
+
+      setState({
+        content: markdownContent,
+        isLoading: false,
+        error: null,
+        lastSuccessUpdate: now,
+      });
+
+      // Сохраняем в localStorage для кеширования
+      localStorage.setItem('markdown-cache', JSON.stringify(markdownContent));
+    } catch (error) {
+      setState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: error instanceof Error ? error.message : 'Неизвестная ошибка',
+      }));
+    }
+  }, []);
+
+  /**
+   * Очищает ошибку
+   */
+  const clearError = useCallback(() => {
+    setState(prev => ({ ...prev, error: null }));
+  }, []);
+
+  /**
+   * Загружает кешированный контент из localStorage
+   */
+  const loadCachedContent = useCallback(() => {
+    try {
+      const cached = localStorage.getItem('markdown-cache');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        // Восстанавливаем объект Date из строки
+        const restoredDate = new Date(parsed.lastUpdated);
+
+        // Проверяем валидность восстановленной даты
+        if (isNaN(restoredDate.getTime())) {
+          console.warn('Невалидная дата в кеше, очищаем кеш');
+          localStorage.removeItem('markdown-cache');
+          return;
+        }
+
+        const markdownContent: MarkdownContent = {
+          ...parsed,
+          lastUpdated: restoredDate,
+        };
+        setState(prev => ({
+          ...prev,
+          content: markdownContent,
+          error: null,
+        }));
+      }
+    } catch {
+      // Игнорируем ошибки парсинга кеша
+    }
+  }, []);
+
+  /**
+   * Очищает весь контент
+   */
+  const clearContent = useCallback(() => {
+    setState({
+      content: null,
+      isLoading: false,
+      error: null,
+      lastSuccessUpdate: null,
+    });
+    localStorage.removeItem('markdown-cache');
+  }, []);
+
+  // Загружаем кешированный контент при инициализации
+  useEffect(() => {
+    loadCachedContent();
+  }, [loadCachedContent]);
+
+  return {
+    ...state,
+    loadMarkdown,
+    clearError,
+    clearContent,
+    hasContent: !!state.content,
+    isEmpty: !state.content && !state.isLoading && !state.error,
+  };
+}

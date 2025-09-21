@@ -1,98 +1,304 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Page Snapshot Backend API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+NestJS API сервер для приема снимков веб-страниц от Chrome расширения и конвертации их в Markdown формат.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Назначение
 
-## Description
+Backend API обрабатывает данные, полученные от Chrome расширения:
+- **Принимает снимки страниц** — полный HTML контент с метаданными
+- **Сохраняет данные** — в файловом хранилище с контрольными суммами
+- **Конвертирует в Markdown** — через систему плагинов для удобного просмотра
+- **Предоставляет API** — для frontend приложения
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Как настроить
 
-## Project setup
+### Требования
+- Node.js 18+
+- npm или yarn
+- Права на запись в папку хранения
 
+### Установка
+
+1. **Перейдите в папку backend:**
+   ```bash
+   cd app/backend
+   ```
+
+2. **Установите зависимости:**
+   ```bash
+   npm install --legacy-peer-deps
+   ```
+   
+   **Примечание:** Флаг `--legacy-peer-deps` необходим из-за конфликта версий между @nestjs/swagger@7.4.0 и NestJS 11. Это безопасно, так как API совместимы.
+
+3. **Настройте переменные окружения:**
+   ```bash
+   cp env.config .env
+   ```
+
+4. **Отредактируйте .env файл:**
+   ```bash
+   # Путь к папке хранения снимков
+   SNAPSHOT_STORAGE_PATH=./storage/snapshots
+   
+   # Лимит размера запросов (по умолчанию 50mb)
+   REQUEST_SIZE_LIMIT=50mb
+   
+   # Порт сервера (по умолчанию 3000)
+   PORT=3000
+   ```
+
+### Настройка хранения
+
+**SNAPSHOT_STORAGE_PATH** — путь к папке для сохранения снимков:
+
+- `./storage/snapshots` — относительный путь (по умолчанию)
+- `C:\snapshots` — абсолютный путь на Windows
+- `/var/snapshots` — абсолютный путь на Linux/Mac
+
+**Важно:**
+- Папка создается автоматически при первом сохранении
+- Убедитесь, что у приложения есть права на запись
+- Используйте абсолютные пути для продакшена
+
+## Как запустить
+
+### Режим разработки
 ```bash
-$ npm install
+npm run start:dev
 ```
 
-## Compile and run the project
-
+### Режим отладки
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm run start:debug
 ```
 
-## Run tests
-
+### Продакшен
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm run build
+npm run start:prod
 ```
 
-## Deployment
+Сервер запустится на `http://localhost:3000` (или указанном в PORT)
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+## Как использовать
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+### Swagger документация
+
+Swagger документация включена по умолчанию и доступна по адресу:
+- **URL**: `http://localhost:3000/api/docs`
+- **Описание**: Интерактивная документация API с возможностью тестирования endpoints
+- **Статус**: Автоматически генерируется из TypeScript декораторов
+
+#### Возможности Swagger
+
+- **Автоматическая генерация** — документация создается из кода
+- **Интерактивное тестирование** — можно тестировать API в браузере
+- **Валидация** — проверка типов и форматов
+- **Примеры** — готовые примеры запросов и ответов
+- **Синхронизация** — документация всегда актуальна
+
+#### Экспорт спецификации
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+# Получить OpenAPI JSON
+curl http://localhost:3000/api/docs-json
+
+# Получить OpenAPI YAML
+curl http://localhost:3000/api/docs-yaml
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+### API Endpoints
 
-## Resources
+#### 1. POST /api/snapshot
+Принимает снимки страниц от Chrome расширения.
 
-Check out a few resources that may come in handy when working with NestJS:
+**Запрос:**
+```json
+{
+  "content": {
+    "html": "<html>...</html>",
+    "url": "https://example.com/page",
+    "title": "Page Title",
+    "timestamp": "2024-01-01T12:00:00.000Z"
+  },
+  "userAgent": "Mozilla/5.0..."
+}
+```
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+**Ответ:**
+```json
+{
+  "success": true,
+  "message": "Снимок страницы успешно получен",
+  "data": {
+    "id": "snapshot_abc123_def456",
+    "receivedAt": "2024-01-01T12:00:01.000Z",
+    "checksum": "a1b2c3d4e5f6..."
+  }
+}
+```
 
-## Support
+#### 2. GET /api/md
+Конвертирует сохраненный HTML в Markdown формат.
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+**Ответ:**
+```
+Content-Type: text/plain
 
-## Stay in touch
+# Заголовок страницы
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+[Открыть оригинал](https://example.com/page)
+```
 
-## License
+### Система плагинов
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+Backend использует модульную систему плагинов для конвертации HTML в Markdown:
+
+**Структура:**
+```
+plugins/
+├── custom/          # Пользовательские плагины
+└── standard/        # Системные плагины
+    ├── hh.vacancy.plugin.ts
+    └── zzz-title.plugin.ts
+```
+
+**Порядок выполнения:**
+1. Пользовательские плагины (приоритет)
+2. Системные плагины (fallback)
+3. Алфавитный порядок внутри категории
+4. Остановка при первом успехе
+
+**Создание плагина:**
+```typescript
+// plugins/custom/my-plugin.plugin.ts
+import { MarkdownPlugin } from '../../src/markdown/markdown-plugin.interface';
+
+export class MyPlugin implements MarkdownPlugin {
+  convert(htmlFilePath: string, pageUrl: string): string | null {
+    // Ваша логика обработки HTML
+    return markdownResult; // или null
+  }
+}
+```
+
+### Структура данных
+
+**Сохранение файлов:**
+```
+{SNAPSHOT_STORAGE_PATH}/
+├── index.html    # Исходный HTML
+└── data.json     # Метаданные
+```
+
+**data.json:**
+```json
+{
+  "id": "snapshot_abc123_def456",
+  "url": "https://example.com/page",
+  "title": "Page Title",
+  "timestamp": "2024-01-01T12:00:00.000Z",
+  "userAgent": "Mozilla/5.0...",
+  "checksum": "a1b2c3d4e5f6...",
+  "receivedAt": "2024-01-01T12:00:01.000Z",
+  "htmlSize": 12345
+}
+```
+
+### Контрольные суммы
+
+Для каждого снимка вычисляется SHA-256 хэш на основе:
+- HTML контента
+- URL страницы
+- Заголовка
+- Временной метки
+- User Agent
+
+Используется для:
+- Проверки целостности данных
+- Обнаружения дубликатов
+- Верификации неизменности
+
+## Архитектура
+
+### Модули
+
+- **AppModule** — корневой модуль приложения
+- **SnapshotModule** — обработка снимков страниц
+- **MarkdownModule** — конвертация в Markdown
+- **SharedModule** — общие сервисы
+
+### Сервисы
+
+- **FileStorageService** — работа с файловым хранилищем
+- **SnapshotService** — бизнес-логика снимков
+- **MarkdownService** — конвертация HTML в Markdown
+- **PluginLoaderService** — загрузка плагинов
+
+### Валидация
+
+- **URL валидация** — проверка корректности URL
+- **Timestamp валидация** — проверка формата ISO 8601
+- **Content валидация** — проверка обязательных полей
+
+## Безопасность
+
+- **CORS** — настроен для работы с Chrome расширением
+- **Валидация** — все входящие данные проверяются
+- **Лимиты** — ограничение размера запросов
+- **Контрольные суммы** — проверка целостности данных
+
+## Производительность
+
+- **Лимит запросов** — настраивается через REQUEST_SIZE_LIMIT
+- **Синхронная обработка** — плагины выполняются последовательно
+- **Файловое хранилище** — быстрое сохранение и чтение
+- **Кеширование** — не используется (реальное время)
+
+## Устранение проблем
+
+**Ошибки при установке зависимостей:**
+- Если возникает конфликт версий с @nestjs/swagger, используйте: `npm install --legacy-peer-deps`
+- Убедитесь, что используете Node.js 18+ и npm 8+
+- При проблемах с кешем: `npm cache clean --force`
+
+**"Не удалось сохранить снимок":**
+- Проверьте права на запись в папку SNAPSHOT_STORAGE_PATH
+- Убедитесь, что на диске достаточно места
+
+**"HTML файл не найден":**
+- Убедитесь, что снимок был сохранен через POST /api/snapshot
+- Проверьте, что файл index.html существует в папке хранения
+
+**"Нет доступных плагинов":**
+- Проверьте наличие плагинов в папке plugins/standard/
+- Убедитесь, что плагины правильно экспортируют класс
+
+**Ошибки CORS:**
+- Убедитесь, что Chrome расширение отправляет запросы на правильный порт
+- Проверьте настройки CORS в main.ts
+
+## Разработка
+
+**Команды:**
+```bash
+npm run start:dev     # Режим разработки с hot reload
+npm run start:debug   # Режим отладки
+npm run build         # Сборка для продакшена
+npm run test          # Запуск тестов
+npm run lint          # Проверка кода
+```
+
+**Технологии:**
+- NestJS 11
+- TypeScript 5
+- class-validator для валидации
+- Express для HTTP сервера
+- @nestjs/swagger для API документации
+
+**Swagger документация:**
+- Документация доступна по адресу `/api/docs`
+- Все контроллеры и DTO документированы
+- Интерактивное тестирование API в браузере
+- Автоматическая генерация из TypeScript декораторов

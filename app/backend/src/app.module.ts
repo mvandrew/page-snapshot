@@ -4,6 +4,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { SharedModule } from './shared/shared.module';
 import { SnapshotModule } from './snapshot/snapshot.module';
+import { MarkdownModule } from './markdown/markdown.module';
 
 @Module({
   imports: [
@@ -12,7 +13,8 @@ import { SnapshotModule } from './snapshot/snapshot.module';
       envFilePath: '.env',
     }),
     SharedModule,
-    SnapshotModule
+    SnapshotModule,
+    MarkdownModule
   ],
   controllers: [AppController],
   providers: [AppService],

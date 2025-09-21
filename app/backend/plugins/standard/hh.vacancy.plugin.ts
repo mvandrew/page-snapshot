@@ -539,13 +539,44 @@ export class HhVacancyPlugin implements MarkdownPlugin {
             // Очищаем и форматируем HTML в Markdown
             let markdownDescription = this.convertHtmlToMarkdown(descriptionContent);
 
-            // Нормализуем переносы строк, но сохраняем структуру подзаголовков
+            // Нормализуем переносы строк, заменяем любое количество на 2
             markdownDescription = markdownDescription
-                .replace(/\n{6,}/g, '\n\n\n\n\n') // Заменяем 6+ переносов на 5
-                .replace(/\n{5}/g, '\n\n\n\n') // Заменяем 5 переносов на 4
-                .replace(/\n{4}/g, '\n\n\n') // Заменяем 4 переноса на 3
+                .replace(/\n{3,}/g, '\n\n') // Заменяем 3+ переносов на 2
                 .replace(/^\s+|\s+$/g, '') // Убираем пробелы в начале и конце
+                .replace(/^\s+/gm, '') // Убираем пробелы в начале каждой строки (многострочный режим)
+                .split('\n')
+                .map(line => line.trim())
+                .filter(line => line.length > 0) // Убираем пустые строки
+                .map((line, index, array) => {
+                    // Если это элемент списка (начинается с -)
+                    if (line.startsWith('- ')) {
+                        // Проверяем, является ли это первым элементом списка
+                        const isFirstListItem = index === 0 || !array[index - 1].startsWith('- ');
+                        // Проверяем, является ли это последним элементом списка
+                        const isLastListItem = index === array.length - 1 || !array[index + 1].startsWith('- ');
+
+                        if (isFirstListItem && isLastListItem) {
+                            return `\n${line}`; // Первый и последний элемент списка
+                        } else if (isFirstListItem) {
+                            return `\n${line}\n`; // Первый элемент списка
+                        } else if (isLastListItem) {
+                            return `${line}`; // Последний элемент списка
+                        } else {
+                            return `${line}\n`; // Обычный элемент списка
+                        }
+                    }
+                    // Если это заголовок (начинается с ###), добавляем двойной перенос
+                    if (line.startsWith('### ')) {
+                        return `\n\n${line}\n`;
+                    }
+                    // Если это обычная строка, добавляем двойной перенос
+                    return `\n\n${line}`;
+                })
+                .join('')
                 .trim();
+
+            console.log('[HhVacancyPlugin] extractDescription финальный результат:', JSON.stringify(markdownDescription.substring(0, 200)));
+            console.log('[HhVacancyPlugin] extractDescription полный результат:', JSON.stringify(markdownDescription));
 
             return markdownDescription.length > 0 ? markdownDescription : undefined;
         }
@@ -562,13 +593,24 @@ export class HhVacancyPlugin implements MarkdownPlugin {
         let markdown = htmlContent;
 
         // Сначала конвертируем подзаголовки <p><strong> в ###
-        markdown = markdown.replace(/<p>\s*<strong>\s*<span[^>]*>(.*?)<\/span>\s*<\/strong>\s*<\/p>/gis, '### $1\n');
+        markdown = markdown.replace(/<p>\s*<strong>\s*<span[^>]*>(.*?)<\/span>\s*<\/strong>\s*<\/p>/gis, '\n\n### $1\n\n');
 
         // Затем конвертируем обычные параграфы (исключая те, что содержат strong)
         markdown = markdown.replace(/<p[^>]*>(?!.*<strong>)(.*?)<\/p>/gis, (match, content) => {
             // Сначала очищаем HTML теги, но сохраняем переносы строк
-            const cleanContent = this.cleanHtmlTagsPreservingLineBreaks(content);
-            return cleanContent.length > 0 ? `${cleanContent}\n\n` : '';
+            let cleanContent = this.cleanHtmlTagsPreservingLineBreaks(content);
+            // Дополнительная очистка лидирующих и завершающих пробелов
+            cleanContent = cleanContent.replace(/^\s+/, '').replace(/\s+$/, '').trim();
+            // Еще более агрессивная очистка всех типов пробелов
+            cleanContent = cleanContent.replace(/[\u00A0\u2000-\u200B\u2028\u2029\u3000\s]+/g, ' ').trim();
+            if (cleanContent.length > 0) {
+                console.log('[HhVacancyPlugin] Обрабатываем параграф:', JSON.stringify(content.substring(0, 50)));
+                console.log('[HhVacancyPlugin] Очищенный контент:', JSON.stringify(cleanContent.substring(0, 50)));
+                const result = `\n\n${cleanContent}\n\n`;
+                console.log('[HhVacancyPlugin] Результат параграфа:', JSON.stringify(result.substring(0, 50)));
+                return result;
+            }
+            return '';
         });
 
         // Конвертируем списки
@@ -579,7 +621,7 @@ export class HhVacancyPlugin implements MarkdownPlugin {
                     const cleanItem = this.cleanHtmlTagsPreservingLineBreaks(item.replace(/<li[^>]*>|<\/li>/gi, ''));
                     return `- ${cleanItem}`;
                 }).join('\n');
-                return `\n${markdownList}\n\n`;
+                return `\n\n${markdownList}\n\n`;
             }
             return '';
         });
@@ -595,14 +637,17 @@ export class HhVacancyPlugin implements MarkdownPlugin {
             markdown = this.cleanHtmlTagsPreservingLineBreaks(markdown);
         }
 
-        // Нормализуем переносы строк, но сохраняем структуру подзаголовков
+        // Нормализуем переносы строк, заменяем любое количество на 2
         markdown = markdown
-            .replace(/\n{5,}/g, '\n\n\n\n') // Заменяем 5+ переносов на 4
-            .replace(/\n{4}/g, '\n\n\n') // Заменяем 4 переноса на 3
+            .replace(/\n{3,}/g, '\n\n') // Заменяем 3+ переносов на 2
             .replace(/^\n+/, '') // Убираем переносы в начале
             .replace(/\n+$/, '') // Убираем переносы в конце
+            .replace(/^\s+/, '') // Убираем пробелы в начале
+            .replace(/\s+$/, '') // Убираем пробелы в конце
             .trim();
 
+        console.log('[HhVacancyPlugin] convertHtmlToMarkdown финальный результат:', JSON.stringify(markdown.substring(0, 200)));
+        console.log('[HhVacancyPlugin] convertHtmlToMarkdown полный результат:', JSON.stringify(markdown));
         return markdown;
     }
 
@@ -612,7 +657,8 @@ export class HhVacancyPlugin implements MarkdownPlugin {
      * @returns очищенный текст
      */
     private cleanHtmlTagsPreservingLineBreaks(htmlContent: string): string {
-        return htmlContent
+        const result = htmlContent
+            .replace(/<p[^>]*>.*?<span[^>]*>(.*?)<\/span>.*?<\/p>/gis, '$1') // Извлекаем только содержимое span внутри p
             .replace(/<br\s*\/?>/gi, '\n') // Конвертируем <br> в переносы строк
             .replace(/<[^>]*>/g, '') // Убираем все HTML теги
             .replace(/&nbsp;/g, ' ') // Заменяем неразрывные пробелы
@@ -621,10 +667,17 @@ export class HhVacancyPlugin implements MarkdownPlugin {
             .replace(/&gt;/g, '>')
             .replace(/&quot;/g, '"')
             .replace(/&#39;/g, "'")
+            .replace(/[\u00A0\u2000-\u200B\u2028\u2029\u3000]/g, ' ') // Заменяем различные типы пробелов на обычные
             .replace(/[ \t]+/g, ' ') // Нормализуем пробелы и табы, но сохраняем переносы строк
             .replace(/\n\s+/g, '\n') // Убираем пробелы в начале строк
+            .replace(/^\s+/gm, '') // Убираем пробелы в начале каждой строки (многострочный режим)
             .replace(/\s+\n/g, '\n') // Убираем пробелы в конце строк
+            .replace(/^\s+/, '') // Убираем пробелы в начале всего текста
+            .replace(/\s+$/, '') // Убираем пробелы в конце всего текста
             .trim();
+
+        console.log('[HhVacancyPlugin] cleanHtmlTagsPreservingLineBreaks результат:', JSON.stringify(result.substring(0, 200)));
+        return result;
     }
 
     /**

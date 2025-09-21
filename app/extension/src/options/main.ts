@@ -231,6 +231,31 @@ const testApiEndpoint = async (url: string): Promise<ApiTestResult> => {
 };
 
 /**
+ * Форматирует JSON строку для красивого отображения
+ * @param jsonString - JSON строка для форматирования
+ * @returns отформатированная строка
+ */
+const formatJsonString = (jsonString: string): string => {
+  try {
+    const parsed = JSON.parse(jsonString);
+    return JSON.stringify(parsed, null, 2);
+  } catch {
+    return jsonString;
+  }
+};
+
+/**
+ * Экранирует HTML символы для безопасного отображения
+ * @param text - текст для экранирования
+ * @returns экранированный текст
+ */
+const escapeHtml = (text: string): string => {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+};
+
+/**
  * Отображает результаты тестирования API
  * @param result - результат тестирования
  */
@@ -278,7 +303,7 @@ const displayTestResults = (result: ApiTestResult): void => {
     errorDetail.className = 'test-detail';
     errorDetail.innerHTML = `
       <span class="test-detail-label">Ошибка</span>
-      <span class="test-detail-value error">${result.error}</span>
+      <span class="test-detail-value error">${escapeHtml(result.error)}</span>
     `;
     testDetails.appendChild(errorDetail);
   }
@@ -292,8 +317,8 @@ const displayTestResults = (result: ApiTestResult): void => {
         const headerDetail = document.createElement('div');
         headerDetail.className = 'test-detail';
         headerDetail.innerHTML = `
-          <span class="test-detail-label">${headerName}</span>
-          <span class="test-detail-value">${headerValue}</span>
+          <span class="test-detail-label">${escapeHtml(headerName)}</span>
+          <span class="test-detail-value">${escapeHtml(headerValue)}</span>
         `;
         testDetails.appendChild(headerDetail);
       }
@@ -304,9 +329,15 @@ const displayTestResults = (result: ApiTestResult): void => {
   if (result.body) {
     const bodyDetail = document.createElement('div');
     bodyDetail.className = 'test-detail';
+
+    // Пытаемся отформатировать JSON, если это возможно
+    const formattedBody = formatJsonString(result.body);
+    const escapedBody = escapeHtml(formattedBody);
+    const isJson = formattedBody !== result.body;
+
     bodyDetail.innerHTML = `
       <span class="test-detail-label">Ответ сервера</span>
-      <span class="test-detail-value">${result.body}</span>
+      <span class="test-detail-value" ${isJson ? 'data-type="json"' : ''}>${escapedBody}</span>
     `;
     testDetails.appendChild(bodyDetail);
   }

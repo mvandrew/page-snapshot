@@ -335,29 +335,55 @@
 
     .test-detail {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: var(--spacing-sm);
+      flex-direction: column;
+      gap: var(--spacing-xs);
+      padding: var(--spacing-md);
       background: var(--surface);
       border-radius: 4px;
+      border: 1px solid var(--border-color);
     }
 
     .test-detail-label {
-      font-weight: 500;
+      font-weight: 600;
       color: var(--text-secondary);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
     .test-detail-value {
       font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
       color: var(--text-primary);
+      word-break: break-all;
+      white-space: pre-wrap;
+      font-size: 13px;
+      line-height: 1.4;
     }
 
     .test-detail-value.success {
       color: var(--success-color);
+      font-weight: 600;
     }
 
     .test-detail-value.error {
       color: var(--error-color);
+    }
+
+    /* Специальные стили для JSON ответов */
+    .test-detail-value[data-type="json"] {
+      background: rgba(0, 0, 0, 0.05);
+      padding: var(--spacing-sm);
+      border-radius: 4px;
+      border-left: 3px solid var(--primary-color);
+      font-size: 12px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .test-detail-value[data-type="json"] {
+        background: rgba(255, 255, 255, 0.05);
+      }
     }
 
     .footer {

@@ -1,10 +1,12 @@
 import { Controller, Post, Body, HttpCode, HttpStatus, HttpException, UseFilters } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { SnapshotService } from './snapshot.service';
 import { CreateSnapshotDto } from './dto/create-snapshot.dto';
 import { SnapshotResponseDto } from './dto/snapshot-response.dto';
 import { SnapshotValidatorService } from './services/snapshot-validator.service';
 import { ValidationExceptionFilter } from '../shared/filters/validation-exception.filter';
 
+@ApiTags('snapshot')
 @Controller('api/snapshot')
 @UseFilters(ValidationExceptionFilter)
 export class SnapshotController {
@@ -15,6 +17,41 @@ export class SnapshotController {
 
     @Post()
     @HttpCode(HttpStatus.OK)
+    @ApiOperation({
+        summary: 'Создать снимок страницы',
+        description: 'Принимает снимок веб-страницы от Chrome расширения и сохраняет его в файловое хранилище'
+    })
+    @ApiBody({
+        type: CreateSnapshotDto,
+        description: 'Данные снимка страницы с HTML контентом и метаданными'
+    })
+    @ApiResponse({
+        status: 200,
+        description: 'Снимок успешно создан',
+        type: SnapshotResponseDto
+    })
+    @ApiResponse({
+        status: 400,
+        description: 'Ошибка валидации данных',
+        schema: {
+            type: 'object',
+            properties: {
+                success: { type: 'boolean', example: false },
+                message: { type: 'string', example: 'Ошибка обработки снимка: [описание ошибки]' }
+            }
+        }
+    })
+    @ApiResponse({
+        status: 500,
+        description: 'Ошибка сохранения снимка',
+        schema: {
+            type: 'object',
+            properties: {
+                success: { type: 'boolean', example: false },
+                message: { type: 'string', example: 'Не удалось сохранить снимок: [описание ошибки]' }
+            }
+        }
+    })
     async createSnapshot(@Body() snapshotData: CreateSnapshotDto): Promise<SnapshotResponseDto> {
         console.log('=== ПОЛУЧЕН ЗАПРОС НА СОЗДАНИЕ СНИМКА ===');
         console.log('Время запроса:', new Date().toISOString());

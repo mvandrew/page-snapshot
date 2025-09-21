@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { ValidationExceptionFilter } from './shared/filters/validation-exception.filter';
 
@@ -28,8 +29,25 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
+  // Настройка Swagger документации
+  const config = new DocumentBuilder()
+    .setTitle('Page Snapshot API')
+    .setDescription('API для приема снимков веб-страниц и конвертации в Markdown')
+    .setVersion('1.0')
+    .addTag('snapshot', 'Операции со снимками страниц')
+    .addTag('markdown', 'Конвертация в Markdown')
+    .build();
+
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api/docs', app, document, {
+    customSiteTitle: 'Page Snapshot API Docs',
+    customfavIcon: '/favicon.ico',
+    customCss: '.swagger-ui .topbar { display: none }',
+  });
+
   await app.listen(process.env.PORT ?? 3000);
   console.log(`🚀 Сервер запущен на порту ${process.env.PORT ?? 3000}`);
   console.log(`📦 Лимит размера запроса: ${requestSizeLimit}`);
+  console.log(`📚 Swagger документация: http://localhost:${process.env.PORT ?? 3000}/api/docs`);
 }
 bootstrap();

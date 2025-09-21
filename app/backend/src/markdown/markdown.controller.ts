@@ -1,8 +1,10 @@
 import { Controller, Get, HttpCode, HttpStatus, HttpException, Res } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiProduces } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { MarkdownService } from './markdown.service';
 import { FileStorageService } from '../shared/services/file-storage.service';
 
+@ApiTags('markdown')
 @Controller('api/md')
 export class MarkdownController {
     constructor(
@@ -12,6 +14,62 @@ export class MarkdownController {
 
     @Get()
     @HttpCode(HttpStatus.OK)
+    @ApiOperation({
+        summary: 'Конвертировать HTML в Markdown',
+        description: 'Конвертирует сохраненный HTML файл в Markdown формат через систему плагинов'
+    })
+    @ApiProduces('text/plain')
+    @ApiResponse({
+        status: 200,
+        description: 'Markdown контент успешно сгенерирован',
+        content: {
+            'text/plain': {
+                schema: {
+                    type: 'string',
+                    example: '# Заголовок страницы\n\n[Открыть оригинал](https://example.com/page)'
+                }
+            }
+        }
+    })
+    @ApiResponse({
+        status: 404,
+        description: 'HTML файл не найден',
+        schema: {
+            type: 'object',
+            properties: {
+                success: { type: 'boolean', example: false },
+                message: { type: 'string', example: 'HTML файл не найден' },
+                error: { type: 'string', example: 'Error' },
+                timestamp: { type: 'string', example: '2024-01-01T12:00:00.000Z' }
+            }
+        }
+    })
+    @ApiResponse({
+        status: 503,
+        description: 'Сервис конвертации недоступен',
+        schema: {
+            type: 'object',
+            properties: {
+                success: { type: 'boolean', example: false },
+                message: { type: 'string', example: 'Сервис конвертации недоступен - нет доступных плагинов' },
+                error: { type: 'string', example: 'Error' },
+                timestamp: { type: 'string', example: '2024-01-01T12:00:00.000Z' }
+            }
+        }
+    })
+    @ApiResponse({
+        status: 500,
+        description: 'Внутренняя ошибка сервера',
+        schema: {
+            type: 'object',
+            properties: {
+                success: { type: 'boolean', example: false },
+                message: { type: 'string', example: 'Ошибка конвертации в Markdown: [описание ошибки]' },
+                error: { type: 'string', example: 'Error' },
+                timestamp: { type: 'string', example: '2024-01-01T12:00:00.000Z' }
+            }
+        }
+    })
     async convertToMarkdown(@Res() res: Response): Promise<void> {
         console.log('=== ПОЛУЧЕН ЗАПРОС НА КОНВЕРТАЦИЮ В MARKDOWN ===');
         console.log('Время запроса:', new Date().toISOString());

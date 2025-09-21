@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
+import { ValidationExceptionFilter } from './shared/filters/validation-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -16,6 +17,9 @@ async function bootstrap() {
     forbidNonWhitelisted: true,
     transform: true,
   }));
+
+  // Включаем глобальный фильтр для обработки ошибок валидации
+  app.useGlobalFilters(new ValidationExceptionFilter());
 
   // Включаем CORS для работы с расширением
   app.enableCors({

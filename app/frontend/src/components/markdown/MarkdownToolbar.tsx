@@ -1,14 +1,12 @@
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
-import { Copy, Download, RefreshCw, Trash2 } from 'lucide-react';
+import { Copy, Download, Trash2 } from 'lucide-react';
 import { useClipboard } from '../../hooks/useClipboard';
 import type { MarkdownContent } from '../../types/markdown';
 
 interface MarkdownToolbarProps {
     content: MarkdownContent | null;
-    onRefresh: () => void;
     onClear: () => void;
-    isRefreshing: boolean;
 }
 
 /**
@@ -16,9 +14,7 @@ interface MarkdownToolbarProps {
  */
 export function MarkdownToolbar({
     content,
-    onRefresh,
-    onClear,
-    isRefreshing
+    onClear
 }: MarkdownToolbarProps) {
     const { copyToClipboard, isCopied } = useClipboard();
 
@@ -51,6 +47,11 @@ export function MarkdownToolbar({
     };
 
     const formatDate = (date: Date) => {
+        // Проверяем валидность даты
+        if (!date || isNaN(date.getTime())) {
+            return 'Неизвестно';
+        }
+
         return new Intl.DateTimeFormat('ru-RU', {
             year: 'numeric',
             month: '2-digit',
@@ -81,17 +82,6 @@ export function MarkdownToolbar({
 
                     {/* Кнопки действий */}
                     <div className="flex items-center gap-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={onRefresh}
-                            disabled={isRefreshing}
-                            className="flex items-center gap-2"
-                        >
-                            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                            Обновить
-                        </Button>
-
                         {content && (
                             <>
                                 <Button

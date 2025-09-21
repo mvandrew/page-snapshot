@@ -74,7 +74,21 @@ export function useMarkdown() {
     try {
       const cached = localStorage.getItem('markdown-cache');
       if (cached) {
-        const markdownContent: MarkdownContent = JSON.parse(cached);
+        const parsed = JSON.parse(cached);
+        // Восстанавливаем объект Date из строки
+        const restoredDate = new Date(parsed.lastUpdated);
+
+        // Проверяем валидность восстановленной даты
+        if (isNaN(restoredDate.getTime())) {
+          console.warn('Невалидная дата в кеше, очищаем кеш');
+          localStorage.removeItem('markdown-cache');
+          return;
+        }
+
+        const markdownContent: MarkdownContent = {
+          ...parsed,
+          lastUpdated: restoredDate,
+        };
         setState(prev => ({
           ...prev,
           content: markdownContent,

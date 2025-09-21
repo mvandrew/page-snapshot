@@ -18,8 +18,6 @@ function App() {
         loadMarkdown,
         clearError,
         clearContent,
-        hasContent,
-        isEmpty,
     } = useMarkdown();
 
     const { toast } = useToast();
@@ -65,9 +63,7 @@ function App() {
                     {/* Панель инструментов */}
                     <MarkdownToolbar
                         content={content}
-                        onRefresh={handleRefresh}
                         onClear={handleClear}
-                        isRefreshing={isLoading}
                     />
 
                     {/* Область отображения markdown */}

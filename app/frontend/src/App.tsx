@@ -59,17 +59,15 @@ function App() {
   return (
     <>
       <MainLayout onRefresh={handleRefresh} isRefreshing={isLoading}>
-        <div className="flex flex-col h-[calc(100vh-8rem)]">
+        <div className="flex flex-col h-[calc(100vh-12rem)] min-h-0">
           {/* Панель инструментов */}
           <MarkdownToolbar
             content={content}
-            onRefresh={handleRefresh}
             onClear={handleClear}
-            isRefreshing={isLoading}
           />
 
           {/* Область отображения markdown */}
-          <div className="flex-1 min-h-0">
+          <div className="flex-1 min-h-0 overflow-hidden">
             {error ? (
               <MarkdownError
                 error={error}

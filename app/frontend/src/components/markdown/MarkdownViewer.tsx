@@ -24,8 +24,8 @@ export function MarkdownViewer({ content, isLoading, error }: MarkdownViewerProp
 
     if (isLoading) {
         return (
-            <Card className="h-96">
-                <CardContent className="p-6">
+            <Card className="h-full flex flex-col">
+                <CardContent className="p-6 flex-1 overflow-y-auto">
                     <div className="space-y-3">
                         <Skeleton className="h-6 w-3/4" />
                         <Skeleton className="h-4 w-full" />
@@ -48,8 +48,8 @@ export function MarkdownViewer({ content, isLoading, error }: MarkdownViewerProp
 
     if (error) {
         return (
-            <Card className="h-96">
-                <CardContent className="p-6 flex items-center justify-center">
+            <Card className="h-full flex flex-col">
+                <CardContent className="p-6 flex-1 flex items-center justify-center">
                     <div className="text-center">
                         <div className="text-destructive text-lg font-medium mb-2">
                             Ошибка загрузки
@@ -65,8 +65,8 @@ export function MarkdownViewer({ content, isLoading, error }: MarkdownViewerProp
 
     if (!content) {
         return (
-            <Card className="h-96">
-                <CardContent className="p-6 flex items-center justify-center">
+            <Card className="h-full flex flex-col">
+                <CardContent className="p-6 flex-1 flex items-center justify-center">
                     <div className="text-center">
                         <div className="text-muted-foreground text-lg font-medium mb-2">
                             Нет данных для отображения
@@ -81,17 +81,18 @@ export function MarkdownViewer({ content, isLoading, error }: MarkdownViewerProp
     }
 
     return (
-        <Card className="flex-1">
-            <CardContent className="p-0">
+        <Card className="h-full flex flex-col">
+            <CardContent className="p-0 flex-1 flex flex-col min-h-0">
                 <div
                     ref={containerRef}
-                    className="h-96 overflow-auto p-6 prose prose-sm max-w-none dark:prose-invert"
+                    className="flex-1 overflow-y-auto overflow-x-hidden p-6 prose prose-sm max-w-none dark:prose-invert custom-scrollbar"
                     style={{
                         fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
                         lineHeight: '1.6',
+                        maxHeight: '100%',
                     }}
                 >
-                    <pre className="whitespace-pre-wrap break-words text-sm">
+                    <pre className="whitespace-pre-wrap break-words text-sm m-0">
                         {content.content}
                     </pre>
                 </div>

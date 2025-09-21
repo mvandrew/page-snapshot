@@ -1,4 +1,5 @@
-import { Controller, Get, HttpCode, HttpStatus, HttpException } from '@nestjs/common';
+import { Controller, Get, HttpCode, HttpStatus, HttpException, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import { MarkdownService } from './markdown.service';
 import { FileStorageService } from '../shared/services/file-storage.service';
 
@@ -11,7 +12,7 @@ export class MarkdownController {
 
     @Get()
     @HttpCode(HttpStatus.OK)
-    async convertToMarkdown(): Promise<string> {
+    async convertToMarkdown(@Res() res: Response): Promise<void> {
         console.log('=== ПОЛУЧЕН ЗАПРОС НА КОНВЕРТАЦИЮ В MARKDOWN ===');
         console.log('Время запроса:', new Date().toISOString());
 
@@ -27,20 +28,42 @@ export class MarkdownController {
             console.log('Размер Markdown:', markdownContent.length, 'символов');
             console.log('Превью:', markdownContent.substring(0, 200) + (markdownContent.length > 200 ? '...' : ''));
 
-            return markdownContent;
+            // Возвращаем plain text при успехе
+            res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+            res.send(markdownContent);
         } catch (error) {
             console.error('=== ОШИБКА ПРИ КОНВЕРТАЦИИ В MARKDOWN ===');
             console.error('Тип ошибки:', error.constructor.name);
             console.error('Сообщение ошибки:', error.message);
             console.error('Стек ошибки:', error.stack);
 
-            throw new HttpException(
-                {
-                    success: false,
-                    message: `Ошибка конвертации в Markdown: ${error.message}`
-                },
-                HttpStatus.INTERNAL_SERVER_ERROR
-            );
+            // Определяем статус код в зависимости от типа ошибки
+            let statusCode = HttpStatus.INTERNAL_SERVER_ERROR;
+            let errorMessage = `Ошибка конвертации в Markdown: ${error.message}`;
+
+            // Если файл не найден - 404
+            if (error.message.includes('не найден') || error.message.includes('not found')) {
+                statusCode = HttpStatus.NOT_FOUND;
+                errorMessage = 'HTML файл не найден';
+            }
+            // Если нет плагинов для обработки - 503
+            else if (error.message.includes('ни один плагин не смог')) {
+                statusCode = HttpStatus.SERVICE_UNAVAILABLE;
+                errorMessage = 'Сервис конвертации недоступен - нет доступных плагинов';
+            }
+            // Если ошибка чтения файла - 500
+            else if (error.message.includes('EACCES') || error.message.includes('EISDIR')) {
+                statusCode = HttpStatus.INTERNAL_SERVER_ERROR;
+                errorMessage = 'Ошибка доступа к файлу';
+            }
+
+            // Возвращаем JSON при ошибке
+            res.status(statusCode).json({
+                success: false,
+                message: errorMessage,
+                error: error.constructor.name,
+                timestamp: new Date().toISOString()
+            });
         }
     }
 

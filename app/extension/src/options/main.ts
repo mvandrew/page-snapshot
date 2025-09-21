@@ -116,8 +116,9 @@ const validateEndpoint = (value: string): string => {
     return "Введите корректный URL.";
   }
 
-  if (parsed.protocol !== "https:") {
-    return "Endpoint должен использовать HTTPS.";
+  // Разрешаем как HTTP, так и HTTPS протоколы
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    return "Endpoint должен использовать HTTP или HTTPS протокол.";
   }
 
   // Дополнительная проверка на валидность домена
@@ -159,7 +160,10 @@ const testApiEndpoint = async (url: string): Promise<ApiTestResult> => {
         'User-Agent': navigator.userAgent
       },
       body: JSON.stringify(testPayload),
-      signal: controller.signal
+      signal: controller.signal,
+      // Для поддержки самоподписных сертификатов и HTTP
+      mode: 'cors',
+      credentials: 'omit'
     });
 
     clearTimeout(timeoutId);
@@ -200,10 +204,21 @@ const testApiEndpoint = async (url: string): Promise<ApiTestResult> => {
         };
       }
 
+      // Обработка специфических ошибок сети и SSL
+      let errorMessage = error.message;
+
+      if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+        errorMessage = 'Ошибка сети. Проверьте доступность endpoint и настройки CORS.';
+      } else if (error.message.includes('SSL') || error.message.includes('certificate')) {
+        errorMessage = 'Ошибка SSL сертификата. Возможно, используется самоподписный сертификат.';
+      } else if (error.message.includes('CORS')) {
+        errorMessage = 'Ошибка CORS. Сервер должен разрешать запросы с вашего домена.';
+      }
+
       return {
         success: false,
         responseTime,
-        error: error.message
+        error: errorMessage
       };
     }
 

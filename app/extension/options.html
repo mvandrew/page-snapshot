@@ -430,7 +430,7 @@
         Page Snapshot Settings
       </h1>
       <p>Настройте endpoint для отправки снимков страниц. Расширение будет отправлять HTML и метаданные страницы в
-        формате JSON на указанный URL.</p>
+        формате JSON на указанный URL. Поддерживаются HTTP и HTTPS соединения.</p>
     </div>
 
     <div class="form-section">
@@ -448,12 +448,12 @@
             Endpoint URL <span class="required">*</span>
           </label>
           <div class="input-group">
-            <input id="endpoint-url" name="endpoint-url" type="url" placeholder="https://api.example.com/snapshots"
+            <input id="endpoint-url" name="endpoint-url" type="url" placeholder="http://localhost:3000/api/snapshots"
               required autocomplete="url" />
           </div>
           <div class="input-help">
-            Endpoint должен принимать HTTPS POST запросы с JSON телом.
-            Поддерживаются только безопасные HTTPS соединения.
+            Endpoint должен принимать HTTP/HTTPS POST запросы с JSON телом.
+            Поддерживаются как HTTP, так и HTTPS соединения (включая самоподписные сертификаты).
           </div>
         </div>
 

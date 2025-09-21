@@ -118,12 +118,12 @@ curl http://localhost:3000/api/docs-yaml
 
 ### Система плагинов
 
-Backend использует модульную систему плагинов для конвертации HTML в Markdown:
+Backend использует модульную систему плагинов для конвертации HTML в Markdown. Поддерживаются как стандартные, так и пользовательские плагины без каких-либо ограничений.
 
 **Структура:**
 ```
 plugins/
-├── custom/          # Пользовательские плагины
+├── custom/          # Пользовательские плагины (без ограничений)
 └── standard/        # Системные плагины
     ├── hh.vacancy.plugin.ts
     └── zzz-title.plugin.ts
@@ -135,7 +135,7 @@ plugins/
 3. Алфавитный порядок внутри категории
 4. Остановка при первом успехе
 
-**Создание плагина:**
+**Создание пользовательского плагина:**
 ```typescript
 // plugins/custom/my-plugin.plugin.ts
 import { MarkdownPlugin } from '../../src/markdown/markdown-plugin.interface';
@@ -143,10 +143,17 @@ import { MarkdownPlugin } from '../../src/markdown/markdown-plugin.interface';
 export class MyPlugin implements MarkdownPlugin {
   convert(htmlFilePath: string, pageUrl: string): string | null {
     // Ваша логика обработки HTML
+    // Возвращайте null если плагин не подходит для данного контента
     return markdownResult; // или null
   }
 }
 ```
+
+**Возможности плагинов:**
+- **Без ограничений** — создавайте любые плагины для специфических сайтов
+- **Автоматическая загрузка** — плагины подключаются автоматически при запуске
+- **Гибкая логика** — каждый плагин решает, подходит ли ему конкретный контент
+- **Легкое расширение** — просто добавьте файл в папку `custom/`
 
 ### Структура данных
 

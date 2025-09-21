@@ -4,7 +4,8 @@ import type { ApiError } from '../types/api';
  * API клиент для работы с backend
  */
 class ApiService {
-    private readonly baseUrl = 'http://localhost:3000';
+    private readonly baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+    private readonly timeout = parseInt(import.meta.env.VITE_API_TIMEOUT || '5000');
 
     /**
      * Получает markdown контент с сервера
@@ -12,13 +13,19 @@ class ApiService {
      */
     async getMarkdown(): Promise<string | null> {
         try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+
             const response = await fetch(`${this.baseUrl}/api/md`, {
                 method: 'GET',
                 headers: {
                     'Accept': 'text/plain',
                     'Content-Type': 'text/plain; charset=utf-8',
                 },
+                signal: controller.signal,
             });
+
+            clearTimeout(timeoutId);
 
             if (!response.ok) {
                 // 404 означает, что нет данных для конвертации - это нормальная ситуация, не ошибка
@@ -50,6 +57,16 @@ class ApiService {
         } catch (error) {
             if (error && typeof error === 'object' && 'status' in error && 'message' in error) {
                 throw error;
+            }
+
+            // Обработка таймаута
+            if (error instanceof Error && error.name === 'AbortError') {
+                const timeoutError: ApiError = {
+                    status: 408,
+                    message: `Превышено время ожидания (${this.timeout}мс). Проверьте доступность сервера.`,
+                    details: `Сервер не отвечает по адресу ${this.baseUrl}`,
+                };
+                throw timeoutError;
             }
 
             // Обработка сетевых ошибок
@@ -85,11 +102,15 @@ class ApiService {
      */
     async checkHealth(): Promise<boolean> {
         try {
-            // Используем GET запрос вместо HEAD, чтобы получить полный ответ
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+
             const response = await fetch(`${this.baseUrl}/api/md`, {
                 method: 'GET',
-                signal: AbortSignal.timeout(5000), // 5 секунд таймаут
+                signal: controller.signal,
             });
+
+            clearTimeout(timeoutId);
 
             // Сервер доступен, если он отвечает (даже с ошибкой 404)
             // 404 означает, что сервер работает, но нет данных

@@ -13,6 +13,8 @@ interface VacancyData {
     schedule?: string;
     workingHours?: string;
     workFormat?: string;
+    employerName?: string;
+    employerUrl?: string;
 }
 
 /**
@@ -99,6 +101,11 @@ export class HhVacancyPlugin implements MarkdownPlugin {
 
         // Извлекаем формат работы
         vacancyData.workFormat = this.extractWorkFormat(htmlContent);
+
+        // Извлекаем информацию о работодателе
+        const employerInfo = this.extractEmployerInfo(htmlContent);
+        vacancyData.employerName = employerInfo.name;
+        vacancyData.employerUrl = employerInfo.url;
 
         return vacancyData;
     }
@@ -430,6 +437,48 @@ export class HhVacancyPlugin implements MarkdownPlugin {
     }
 
     /**
+     * Извлекает информацию о работодателе
+     * @param htmlContent - HTML контент
+     * @returns объект с именем и URL работодателя
+     */
+    private extractEmployerInfo(htmlContent: string): { name?: string; url?: string } {
+        // Ищем блок с data-qa="vacancy-company__details"
+        const employerBlockMatch = htmlContent.match(/<div[^>]*data-qa="vacancy-company__details"[^>]*>(.*?)<\/div>/is);
+        if (employerBlockMatch && employerBlockMatch[1]) {
+            const employerContent = employerBlockMatch[1];
+
+            // Извлекаем ссылку на работодателя
+            const employerLinkMatch = employerContent.match(/<a[^>]*data-qa="vacancy-company-name"[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/is);
+            if (employerLinkMatch) {
+                const employerUrl = employerLinkMatch[1];
+                const employerLinkContent = employerLinkMatch[2];
+
+                // Извлекаем название компании из span внутри ссылки
+                const employerNameMatch = employerLinkContent.match(/<span[^>]*class="[^"]*magritte-text[^"]*"[^>]*>(.*?)<\/span>/is);
+                if (employerNameMatch && employerNameMatch[1]) {
+                    const employerName = employerNameMatch[1]
+                        .replace(/<[^>]*>/g, '')
+                        .replace(/&nbsp;/g, ' ')
+                        .replace(/\s+/g, ' ')
+                        .trim();
+
+                    // Формируем полный URL для работодателя
+                    const fullEmployerUrl = employerUrl.startsWith('http')
+                        ? employerUrl
+                        : `https://hh.ru${employerUrl}`;
+
+                    return {
+                        name: employerName,
+                        url: fullEmployerUrl
+                    };
+                }
+            }
+        }
+
+        return {};
+    }
+
+    /**
      * Создает Markdown из данных о вакансии
      * @param vacancyData - данные о вакансии
      * @param pageUrl - URL страницы
@@ -437,6 +486,15 @@ export class HhVacancyPlugin implements MarkdownPlugin {
      */
     private createMarkdown(vacancyData: VacancyData, pageUrl: string): string {
         let markdown = `# ${vacancyData.title}\n\n`;
+
+        // Добавляем информацию о работодателе
+        if (vacancyData.employerName) {
+            if (vacancyData.employerUrl) {
+                markdown += `**🏢 Работодатель:** [${vacancyData.employerName}](${vacancyData.employerUrl})\n\n`;
+            } else {
+                markdown += `**🏢 Работодатель:** ${vacancyData.employerName}\n\n`;
+            }
+        }
 
         // Добавляем основную информацию
         if (vacancyData.salary) {

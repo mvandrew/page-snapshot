@@ -15,6 +15,7 @@ interface VacancyData {
     workFormat?: string;
     employerName?: string;
     employerUrl?: string;
+    skills?: string[];
 }
 
 /**
@@ -106,6 +107,9 @@ export class HhVacancyPlugin implements MarkdownPlugin {
         const employerInfo = this.extractEmployerInfo(htmlContent);
         vacancyData.employerName = employerInfo.name;
         vacancyData.employerUrl = employerInfo.url;
+
+        // Извлекаем ключевые навыки
+        vacancyData.skills = this.extractSkills(htmlContent);
 
         return vacancyData;
     }
@@ -479,6 +483,45 @@ export class HhVacancyPlugin implements MarkdownPlugin {
     }
 
     /**
+     * Извлекает ключевые навыки из блока с тегами
+     * @param htmlContent - HTML контент
+     * @returns массив навыков или undefined
+     */
+    private extractSkills(htmlContent: string): string[] | undefined {
+        // Ищем блок с классом vacancy-skill-list
+        const skillsListMatch = htmlContent.match(/<ul[^>]*class="[^"]*vacancy-skill-list[^"]*"[^>]*>(.*?)<\/ul>/is);
+        if (skillsListMatch && skillsListMatch[1]) {
+            const skillsContent = skillsListMatch[1];
+            const skills: string[] = [];
+
+            // Ищем все li элементы с data-qa="skills-element"
+            const skillMatches = skillsContent.matchAll(/<li[^>]*data-qa="skills-element"[^>]*>(.*?)<\/li>/gis);
+
+            for (const skillMatch of skillMatches) {
+                if (skillMatch[1]) {
+                    const skillContent = skillMatch[1];
+                    // Извлекаем текст из div с классом magritte-tag__label
+                    const skillLabelMatch = skillContent.match(/<div[^>]*class="[^"]*magritte-tag__label[^"]*"[^>]*>(.*?)<\/div>/is);
+                    if (skillLabelMatch && skillLabelMatch[1]) {
+                        const skill = skillLabelMatch[1]
+                            .replace(/<[^>]*>/g, '')
+                            .replace(/&nbsp;/g, ' ')
+                            .replace(/\s+/g, ' ')
+                            .trim();
+                        if (skill.length > 0) {
+                            skills.push(skill);
+                        }
+                    }
+                }
+            }
+
+            return skills.length > 0 ? skills : undefined;
+        }
+
+        return undefined;
+    }
+
+    /**
      * Создает Markdown из данных о вакансии
      * @param vacancyData - данные о вакансии
      * @param pageUrl - URL страницы
@@ -523,6 +566,15 @@ export class HhVacancyPlugin implements MarkdownPlugin {
 
         if (vacancyData.workFormat) {
             markdown += `**🏠 Формат работы:** ${vacancyData.workFormat}\n\n`;
+        }
+
+        // Добавляем ключевые навыки
+        if (vacancyData.skills && vacancyData.skills.length > 0) {
+            markdown += `## 🔧 Ключевые навыки\n\n`;
+            vacancyData.skills.forEach(skill => {
+                markdown += `- ${skill}\n`;
+            });
+            markdown += `\n`;
         }
 
         // Добавляем ссылку на оригинальную вакансию

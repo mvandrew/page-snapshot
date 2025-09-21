@@ -562,9 +562,7 @@ export class HhVacancyPlugin implements MarkdownPlugin {
         let markdown = htmlContent;
 
         // Сначала конвертируем подзаголовки <p><strong> в ###
-        markdown = markdown.replace(/<p>\s*<strong>\s*<span[^>]*>(.*?)<\/span>\s*<\/strong>\s*<\/p>/gis, '\n\n### $1\n\n');
-
-        console.log('[HhVacancyPlugin] После обработки подзаголовков:', JSON.stringify(markdown.substring(0, 200)));
+        markdown = markdown.replace(/<p>\s*<strong>\s*<span[^>]*>(.*?)<\/span>\s*<\/strong>\s*<\/p>/gis, '### $1\n');
 
         // Затем конвертируем обычные параграфы (исключая те, что содержат strong)
         markdown = markdown.replace(/<p[^>]*>(?!.*<strong>)(.*?)<\/p>/gis, (match, content) => {
@@ -604,8 +602,6 @@ export class HhVacancyPlugin implements MarkdownPlugin {
             .replace(/^\n+/, '') // Убираем переносы в начале
             .replace(/\n+$/, '') // Убираем переносы в конце
             .trim();
-
-        console.log('[HhVacancyPlugin] Финальный результат:', JSON.stringify(markdown.substring(0, 300)));
 
         return markdown;
     }

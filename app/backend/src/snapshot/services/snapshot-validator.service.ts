@@ -29,8 +29,7 @@ export class SnapshotValidatorService implements ISnapshotValidator {
         // Выполняем валидацию
         const errors: ValidationError[] = await validate(snapshotDto, {
             whitelist: true,
-            forbidNonWhitelisted: true,
-            transform: true
+            forbidNonWhitelisted: true
         });
 
         if (errors.length > 0) {

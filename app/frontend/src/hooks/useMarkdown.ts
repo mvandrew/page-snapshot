@@ -23,6 +23,19 @@ export function useMarkdown() {
       const content = await apiService.getMarkdown();
       const now = new Date();
 
+      // Если content === null, это означает 404 - нет данных для конвертации
+      if (content === null) {
+        setState({
+          content: null,
+          isLoading: false,
+          error: null,
+          lastSuccessUpdate: null,
+        });
+        // Очищаем кеш при отсутствии данных
+        localStorage.removeItem('markdown-cache');
+        return;
+      }
+
       const markdownContent: MarkdownContent = {
         content,
         lastUpdated: now,

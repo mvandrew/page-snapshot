@@ -8,8 +8,9 @@ class ApiService {
 
     /**
      * Получает markdown контент с сервера
+     * @returns Promise<string | null> - null если нет данных (404), строка с контентом в остальных случаях
      */
-    async getMarkdown(): Promise<string> {
+    async getMarkdown(): Promise<string | null> {
         try {
             const response = await fetch(`${this.baseUrl}/api/md`, {
                 method: 'GET',
@@ -20,14 +21,10 @@ class ApiService {
             });
 
             if (!response.ok) {
-                // 404 означает, что нет данных для конвертации - это нормальная ситуация
+                // 404 означает, что нет данных для конвертации - это нормальная ситуация, не ошибка
                 if (response.status === 404) {
-                    const error: ApiError = {
-                        status: 404,
-                        message: 'Нет данных для конвертации. Убедитесь, что Chrome расширение сохранило HTML файл.',
-                        details: 'Сервер работает, но не найден HTML файл для конвертации в markdown',
-                    };
-                    throw error;
+                    // Возвращаем null вместо выброса ошибки для 404
+                    return null;
                 }
 
                 const errorData = await this.parseErrorResponse(response);

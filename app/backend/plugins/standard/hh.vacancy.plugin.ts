@@ -16,6 +16,7 @@ interface VacancyData {
     employerName?: string;
     employerUrl?: string;
     skills?: string[];
+    description?: string;
 }
 
 /**
@@ -110,6 +111,9 @@ export class HhVacancyPlugin implements MarkdownPlugin {
 
         // Извлекаем ключевые навыки
         vacancyData.skills = this.extractSkills(htmlContent);
+
+        // Извлекаем описание вакансии
+        vacancyData.description = this.extractDescription(htmlContent);
 
         return vacancyData;
     }
@@ -522,6 +526,134 @@ export class HhVacancyPlugin implements MarkdownPlugin {
     }
 
     /**
+     * Извлекает описание вакансии с форматированием
+     * @param htmlContent - HTML контент
+     * @returns отформатированное описание или undefined
+     */
+    private extractDescription(htmlContent: string): string | undefined {
+        // Ищем блок с data-qa="vacancy-description"
+        const descriptionMatch = htmlContent.match(/<div[^>]*data-qa="vacancy-description"[^>]*>(.*?)<\/div>/is);
+        if (descriptionMatch && descriptionMatch[1]) {
+            const descriptionContent = descriptionMatch[1];
+
+            // Очищаем и форматируем HTML в Markdown
+            let markdownDescription = this.convertHtmlToMarkdown(descriptionContent);
+
+            // Нормализуем переносы строк, но сохраняем структуру подзаголовков
+            markdownDescription = markdownDescription
+                .replace(/\n{6,}/g, '\n\n\n\n\n') // Заменяем 6+ переносов на 5
+                .replace(/\n{5}/g, '\n\n\n\n') // Заменяем 5 переносов на 4
+                .replace(/\n{4}/g, '\n\n\n') // Заменяем 4 переноса на 3
+                .replace(/^\s+|\s+$/g, '') // Убираем пробелы в начале и конце
+                .trim();
+
+            return markdownDescription.length > 0 ? markdownDescription : undefined;
+        }
+
+        return undefined;
+    }
+
+    /**
+     * Конвертирует HTML в Markdown с поддержкой подзаголовков
+     * @param htmlContent - HTML контент
+     * @returns Markdown строка
+     */
+    private convertHtmlToMarkdown(htmlContent: string): string {
+        let markdown = htmlContent;
+
+        // Сначала конвертируем подзаголовки <p><strong> в ###
+        markdown = markdown.replace(/<p>\s*<strong>\s*<span[^>]*>(.*?)<\/span>\s*<\/strong>\s*<\/p>/gis, '\n\n### $1\n\n');
+
+        console.log('[HhVacancyPlugin] После обработки подзаголовков:', JSON.stringify(markdown.substring(0, 200)));
+
+        // Затем конвертируем обычные параграфы (исключая те, что содержат strong)
+        markdown = markdown.replace(/<p[^>]*>(?!.*<strong>)(.*?)<\/p>/gis, (match, content) => {
+            // Сначала очищаем HTML теги, но сохраняем переносы строк
+            const cleanContent = this.cleanHtmlTagsPreservingLineBreaks(content);
+            return cleanContent.length > 0 ? `${cleanContent}\n\n` : '';
+        });
+
+        // Конвертируем списки
+        markdown = markdown.replace(/<ul[^>]*>(.*?)<\/ul>/gis, (match, content) => {
+            const listItems = content.match(/<li[^>]*>(.*?)<\/li>/gis);
+            if (listItems) {
+                const markdownList = listItems.map(item => {
+                    const cleanItem = this.cleanHtmlTagsPreservingLineBreaks(item.replace(/<li[^>]*>|<\/li>/gi, ''));
+                    return `- ${cleanItem}`;
+                }).join('\n');
+                return `\n${markdownList}\n\n`;
+            }
+            return '';
+        });
+
+        // Конвертируем отдельные li элементы (если они не в ul)
+        markdown = markdown.replace(/<li[^>]*>(.*?)<\/li>/gis, (match, content) => {
+            const cleanContent = this.cleanHtmlTagsPreservingLineBreaks(content);
+            return `- ${cleanContent}`;
+        });
+
+        // Очищаем оставшиеся HTML теги только если они есть
+        if (markdown.includes('<')) {
+            markdown = this.cleanHtmlTagsPreservingLineBreaks(markdown);
+        }
+
+        // Нормализуем переносы строк, но сохраняем структуру подзаголовков
+        markdown = markdown
+            .replace(/\n{5,}/g, '\n\n\n\n') // Заменяем 5+ переносов на 4
+            .replace(/\n{4}/g, '\n\n\n') // Заменяем 4 переноса на 3
+            .replace(/^\n+/, '') // Убираем переносы в начале
+            .replace(/\n+$/, '') // Убираем переносы в конце
+            .trim();
+
+        console.log('[HhVacancyPlugin] Финальный результат:', JSON.stringify(markdown.substring(0, 300)));
+
+        return markdown;
+    }
+
+    /**
+     * Очищает HTML теги и нормализует текст, сохраняя переносы строк
+     * @param htmlContent - HTML контент
+     * @returns очищенный текст
+     */
+    private cleanHtmlTagsPreservingLineBreaks(htmlContent: string): string {
+        return htmlContent
+            .replace(/<br\s*\/?>/gi, '\n') // Конвертируем <br> в переносы строк
+            .replace(/<[^>]*>/g, '') // Убираем все HTML теги
+            .replace(/&nbsp;/g, ' ') // Заменяем неразрывные пробелы
+            .replace(/&amp;/g, '&') // Заменяем HTML entities
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .replace(/[ \t]+/g, ' ') // Нормализуем пробелы и табы, но сохраняем переносы строк
+            .replace(/\n\s+/g, '\n') // Убираем пробелы в начале строк
+            .replace(/\s+\n/g, '\n') // Убираем пробелы в конце строк
+            .trim();
+    }
+
+    /**
+     * Очищает HTML теги и нормализует текст
+     * @param htmlContent - HTML контент
+     * @returns очищенный текст
+     */
+    private cleanHtmlTags(htmlContent: string): string {
+        return htmlContent
+            .replace(/<br\s*\/?>/gi, '\n') // Конвертируем <br> в переносы строк
+            .replace(/<[^>]*>/g, '') // Убираем все HTML теги
+            .replace(/&nbsp;/g, ' ') // Заменяем неразрывные пробелы
+            .replace(/&amp;/g, '&') // Заменяем HTML entities
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .replace(/[ \t]+/g, ' ') // Нормализуем пробелы и табы, но сохраняем переносы строк
+            .replace(/\n\s+/g, '\n') // Убираем пробелы в начале строк
+            .replace(/\s+\n/g, '\n') // Убираем пробелы в конце строк
+            .replace(/\n{4,}/g, '\n\n\n') // Заменяем 4+ переносов на 3, сохраняя структуру подзаголовков
+            .trim();
+    }
+
+    /**
      * Создает Markdown из данных о вакансии
      * @param vacancyData - данные о вакансии
      * @param pageUrl - URL страницы
@@ -575,6 +707,11 @@ export class HhVacancyPlugin implements MarkdownPlugin {
                 markdown += `- ${skill}\n`;
             });
             markdown += `\n`;
+        }
+
+        // Добавляем описание вакансии
+        if (vacancyData.description) {
+            markdown += `## 📝 Описание вакансии\n\n${vacancyData.description}\n\n`;
         }
 
         // Добавляем ссылку на оригинальную вакансию

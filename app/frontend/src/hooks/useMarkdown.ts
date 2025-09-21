@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
-import { MarkdownState, MarkdownContent } from '@/types/markdown';
-import { apiService } from '@/services/api';
+import type { MarkdownState, MarkdownContent } from '../types/markdown';
+import { apiService } from '../services/api';
 
 /**
  * Хук для управления состоянием markdown контента
@@ -22,7 +22,7 @@ export function useMarkdown() {
     try {
       const content = await apiService.getMarkdown();
       const now = new Date();
-      
+
       const markdownContent: MarkdownContent = {
         content,
         lastUpdated: now,

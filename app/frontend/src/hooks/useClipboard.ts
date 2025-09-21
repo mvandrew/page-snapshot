@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { ClipboardState } from '@/types/markdown';
+import type { ClipboardState } from '../types/markdown';
 
 /**
  * Хук для работы с буфером обмена
@@ -74,7 +74,7 @@ export function useClipboard() {
       try {
         const successful = document.execCommand('copy');
         document.body.removeChild(textArea);
-        
+
         if (successful) {
           resolve();
         } else {

@@ -1,6 +1,6 @@
-import { Card, CardContent } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { MarkdownContent } from '@/types/markdown';
+import { Card, CardContent } from '../ui/card';
+import { Skeleton } from '../ui/skeleton';
+import type { MarkdownContent } from '../../types/markdown';
 import { useEffect, useRef } from 'react';
 
 interface MarkdownViewerProps {

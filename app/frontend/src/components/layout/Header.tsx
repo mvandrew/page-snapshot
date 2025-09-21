@@ -1,8 +1,8 @@
-import { ThemeToggle } from '@/components/theme-toggle';
-import { Button } from '@/components/ui/button';
+import { ThemeToggle } from '../theme-toggle';
+import { Button } from '../ui/button';
 import { RefreshCw, Wifi, WifiOff } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { apiService } from '@/services/api';
+import { apiService } from '../../services/api';
 
 interface HeaderProps {
     onRefresh?: () => void;
@@ -19,8 +19,12 @@ export function Header({ onRefresh, isRefreshing = false }: HeaderProps) {
     // Проверяем статус сервера
     useEffect(() => {
         const checkServerStatus = async () => {
-            const status = await apiService.checkHealth();
-            setIsServerOnline(status);
+            try {
+                const status = await apiService.checkHealth();
+                setIsServerOnline(status);
+            } catch (error) {
+                setIsServerOnline(false);
+            }
         };
 
         checkServerStatus();

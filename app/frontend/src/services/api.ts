@@ -1,4 +1,4 @@
-import { ApiError } from '@/types/markdown';
+import type { ApiError } from '../types/api';
 
 /**
  * API клиент для работы с backend

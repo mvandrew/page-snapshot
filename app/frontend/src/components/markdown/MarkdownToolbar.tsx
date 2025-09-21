@@ -1,8 +1,8 @@
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '../ui/button';
+import { Card, CardContent } from '../ui/card';
 import { Copy, Download, RefreshCw, Trash2 } from 'lucide-react';
-import { useClipboard } from '@/hooks/useClipboard';
-import { MarkdownContent } from '@/types/markdown';
+import { useClipboard } from '../../hooks/useClipboard';
+import type { MarkdownContent } from '../../types/markdown';
 
 interface MarkdownToolbarProps {
     content: MarkdownContent | null;

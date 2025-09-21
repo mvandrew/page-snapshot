@@ -22,15 +22,6 @@ export interface MarkdownState {
   lastSuccessUpdate: Date | null;
 }
 
-export interface ApiError {
-  /** HTTP статус код */
-  status: number;
-  /** Сообщение об ошибке */
-  message: string;
-  /** Дополнительная информация */
-  details?: string;
-}
-
 export interface ClipboardState {
   /** Успешно ли скопировано */
   isCopied: boolean;

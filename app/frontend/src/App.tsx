@@ -1,10 +1,10 @@
-import { MainLayout } from '@/components/layout/MainLayout';
-import { MarkdownToolbar } from '@/components/markdown/MarkdownToolbar';
-import { MarkdownViewer } from '@/components/markdown/MarkdownViewer';
-import { MarkdownError } from '@/components/markdown/MarkdownError';
-import { Toaster } from '@/components/ui/toaster';
-import { useMarkdown } from '@/hooks/useMarkdown';
-import { useToast } from '@/components/ui/use-toast';
+import { MainLayout } from './components/layout/MainLayout';
+import { MarkdownToolbar } from './components/markdown/MarkdownToolbar';
+import { MarkdownViewer } from './components/markdown/MarkdownViewer';
+import { MarkdownError } from './components/markdown/MarkdownError';
+import { Toaster } from './components/ui/toaster';
+import { useMarkdown } from './hooks/useMarkdown';
+import { useToast } from './components/ui/use-toast';
 import { useEffect } from 'react';
 
 /**
@@ -18,8 +18,6 @@ function App() {
     loadMarkdown,
     clearError,
     clearContent,
-    hasContent,
-    isEmpty,
   } = useMarkdown();
 
   const { toast } = useToast();

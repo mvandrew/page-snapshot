@@ -50,7 +50,7 @@ Content-Type: text/plain; charset=utf-8
 
 ```typescript
 interface MarkdownPlugin {
-  convert(htmlFilePath: string): string | null;
+  convert(htmlFilePath: string, pageUrl: string): string | null;
 }
 ```
 
@@ -74,9 +74,9 @@ plugins/
 
 **Файл:** `plugins/standard/zzz-title.plugin.ts`
 
-**Функция:** извлекает заголовок страницы из тега `<title>`
+**Функция:** извлекает заголовок страницы из тега `<title>` и добавляет ссылку на оригинальную страницу
 
-**Возврат:** `# {заголовок}` или `null` если тег отсутствует
+**Возврат:** `# {заголовок}\n\n[Открыть оригинал]({url})` или `null` если тег отсутствует
 
 ## Создание собственного плагина
 
@@ -88,11 +88,12 @@ import { MarkdownPlugin } from '../../src/markdown/markdown-plugin.interface';
 import * as fs from 'fs';
 
 export class MyCustomPlugin implements MarkdownPlugin {
-  convert(htmlFilePath: string): string | null {
+  convert(htmlFilePath: string, pageUrl: string): string | null {
     try {
       const htmlContent = fs.readFileSync(htmlFilePath, 'utf8');
       
       // Ваша логика обработки HTML
+      // pageUrl содержит URL сохраненной страницы из data.json
       // ...
       
       return markdownResult; // или null если не удалось обработать

@@ -27,13 +27,14 @@ plugins/
 
 ```typescript
 interface MarkdownPlugin {
-  convert(htmlFilePath: string): string | null;
+  convert(htmlFilePath: string, pageUrl: string): string | null;
 }
 ```
 
 ### Параметры
 
 - `htmlFilePath` - путь к HTML файлу для обработки
+- `pageUrl` - URL сохраненной страницы из data.json
 
 ### Возвращаемое значение
 
@@ -56,12 +57,13 @@ import { MarkdownPlugin } from '../../src/markdown/markdown-plugin.interface';
 import * as fs from 'fs';
 
 export class MyPlugin implements MarkdownPlugin {
-  convert(htmlFilePath: string): string | null {
+  convert(htmlFilePath: string, pageUrl: string): string | null {
     try {
       // Читаем HTML файл
       const htmlContent = fs.readFileSync(htmlFilePath, 'utf8');
       
       // Ваша логика обработки HTML
+      // pageUrl содержит URL сохраненной страницы из data.json
       // ...
       
       // Возвращаем результат или null
@@ -107,20 +109,27 @@ npm run build
 
 ```typescript
 export class HeadersPlugin implements MarkdownPlugin {
-  convert(htmlFilePath: string): string | null {
+  convert(htmlFilePath: string, pageUrl: string): string | null {
     const htmlContent = fs.readFileSync(htmlFilePath, 'utf8');
     
     // Ищем все заголовки h1-h6
     const headers = htmlContent.match(/<h[1-6][^>]*>(.*?)<\/h[1-6]>/gi);
     
     if (headers && headers.length > 0) {
-      return headers
+      let result = headers
         .map(header => {
           const level = header.match(/<h([1-6])/)?.[1] || '1';
           const text = header.replace(/<[^>]*>/g, '').trim();
           return '#'.repeat(parseInt(level)) + ' ' + text;
         })
         .join('\n\n');
+      
+      // Добавляем ссылку на оригинальную страницу
+      if (pageUrl) {
+        result += `\n\n[Открыть оригинал](${pageUrl})`;
+      }
+      
+      return result;
     }
     
     return null;
@@ -132,19 +141,26 @@ export class HeadersPlugin implements MarkdownPlugin {
 
 ```typescript
 export class LinksPlugin implements MarkdownPlugin {
-  convert(htmlFilePath: string): string | null {
+  convert(htmlFilePath: string, pageUrl: string): string | null {
     const htmlContent = fs.readFileSync(htmlFilePath, 'utf8');
     
     const links = htmlContent.match(/<a[^>]+href="([^"]+)"[^>]*>(.*?)<\/a>/gi);
     
     if (links && links.length > 0) {
-      return links
+      let result = links
         .map(link => {
           const href = link.match(/href="([^"]+)"/)?.[1] || '';
           const text = link.replace(/<[^>]*>/g, '').trim();
           return `[${text}](${href})`;
         })
         .join('\n');
+      
+      // Добавляем ссылку на оригинальную страницу
+      if (pageUrl) {
+        result += `\n\n[Открыть оригинал](${pageUrl})`;
+      }
+      
+      return result;
     }
     
     return null;

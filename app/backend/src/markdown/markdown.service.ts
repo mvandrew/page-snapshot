@@ -29,6 +29,10 @@ export class MarkdownService {
             throw new Error(error);
         }
 
+        // Получаем URL страницы из data.json
+        const pageUrl = this.getPageUrlFromDataJson(htmlFilePath);
+        console.log('URL страницы:', pageUrl);
+
         // Пробуем каждый плагин по порядку
         for (let i = 0; i < this.plugins.length; i++) {
             const plugin = this.plugins[i];
@@ -37,7 +41,7 @@ export class MarkdownService {
             try {
                 console.log(`Пробуем плагин ${i + 1}/${this.plugins.length}: ${pluginName}`);
 
-                const result = plugin.convert(htmlFilePath);
+                const result = plugin.convert(htmlFilePath, pageUrl);
 
                 if (result && result.trim().length > 0) {
                     console.log(`Плагин ${pluginName} успешно обработал файл`);
@@ -142,5 +146,37 @@ export class MarkdownService {
         }
 
         return plugins;
+    }
+
+    /**
+     * Получает URL страницы из data.json файла
+     * @param htmlFilePath - путь к HTML файлу
+     * @returns URL страницы или пустую строку если не найден
+     */
+    private getPageUrlFromDataJson(htmlFilePath: string): string {
+        try {
+            // Получаем путь к data.json (в той же папке что и HTML файл)
+            const htmlDir = path.dirname(htmlFilePath);
+            const dataJsonPath = path.join(htmlDir, 'data.json');
+
+            console.log('Путь к data.json:', dataJsonPath);
+
+            if (!fs.existsSync(dataJsonPath)) {
+                console.warn('Файл data.json не найден:', dataJsonPath);
+                return '';
+            }
+
+            // Читаем и парсим data.json
+            const dataJsonContent = fs.readFileSync(dataJsonPath, 'utf8');
+            const data = JSON.parse(dataJsonContent);
+
+            const url = data.url || '';
+            console.log('URL из data.json:', url);
+
+            return url;
+        } catch (error) {
+            console.error('Ошибка при чтении data.json:', error.message);
+            return '';
+        }
     }
 }

@@ -9,11 +9,13 @@ export class ZzzTitlePlugin implements MarkdownPlugin {
     /**
      * Конвертирует HTML файл в Markdown, извлекая заголовок из тега <title>
      * @param htmlFilePath - путь к HTML файлу
+     * @param pageUrl - URL сохраненной страницы из data.json
      * @returns Markdown заголовок или null если тег <title> отсутствует
      */
-    convert(htmlFilePath: string): string | null {
+    convert(htmlFilePath: string, pageUrl: string): string | null {
         try {
             console.log(`[ZzzTitlePlugin] Обрабатываем файл: ${htmlFilePath}`);
+            console.log(`[ZzzTitlePlugin] URL страницы: ${pageUrl}`);
 
             // Читаем HTML файл
             const htmlContent = fs.readFileSync(htmlFilePath, 'utf8');
@@ -26,8 +28,16 @@ export class ZzzTitlePlugin implements MarkdownPlugin {
 
                 if (title.length > 0) {
                     console.log(`[ZzzTitlePlugin] Найден заголовок: "${title}"`);
-                    // Возвращаем заголовок в формате Markdown
-                    return `# ${title}`;
+
+                    // Создаем Markdown с заголовком и ссылкой на оригинальную страницу
+                    let markdown = `# ${title}`;
+
+                    // Добавляем ссылку на оригинальную страницу, если URL доступен
+                    if (pageUrl && pageUrl.trim().length > 0) {
+                        markdown += `\n\n[Открыть оригинал](${pageUrl})`;
+                    }
+
+                    return markdown;
                 }
             }
 

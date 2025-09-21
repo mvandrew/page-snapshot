@@ -3,11 +3,82 @@
   <head>
     <meta charset="utf-8" />
     <title>Page Snapshot Settings</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: system-ui, sans-serif;
+      }
+
+      body {
+        margin: 0;
+        padding: 24px;
+        background: Canvas;
+        color: CanvasText;
+      }
+
+      main {
+        max-width: 520px;
+      }
+
+      form {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 24px;
+      }
+
+      label {
+        font-weight: 600;
+      }
+
+      input[type='url'] {
+        padding: 8px 10px;
+        border: 1px solid ButtonBorder;
+        border-radius: 6px;
+        font-size: 1rem;
+      }
+
+      button {
+        width: fit-content;
+        padding: 8px 16px;
+        border-radius: 6px;
+        border: 1px solid transparent;
+        background-color: AccentColor;
+        color: AccentColorText;
+        font-size: 1rem;
+        cursor: pointer;
+      }
+
+      button:disabled {
+        opacity: 0.6;
+        cursor: wait;
+      }
+
+      .status {
+        min-height: 1.2em;
+        font-size: 0.95rem;
+      }
+
+      .status--error {
+        color: #b00020;
+      }
+
+      .status--success {
+        color: #0f7a1d;
+      }
+    </style>
   </head>
   <body>
     <main>
       <h1>Page Snapshot Settings</h1>
-      <p>The options page will provide controls for configuring the endpoint URL and related preferences.</p>
+      <p>Provide the HTTPS endpoint that will receive page snapshots. The extension will send the page HTML and metadata to this URL as a JSON payload.</p>
+      <form id="options-form">
+        <label for="endpoint-url">Endpoint URL *</label>
+        <input id="endpoint-url" name="endpoint-url" type="url" placeholder="https://api.example.com/snapshots" required />
+        <small>The endpoint must accept HTTPS POST requests with a JSON body.</small>
+        <button type="submit">Save</button>
+        <div id="status" class="status" role="status" aria-live="polite"></div>
+      </form>
     </main>
     <script type="module" src="./src/options/main.ts"></script>
   </body>

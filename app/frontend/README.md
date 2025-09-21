@@ -1,69 +1,123 @@
-# React + TypeScript + Vite
+# Page Snapshot Viewer
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Веб-приложение для просмотра веб-страниц в формате Markdown. Позволяет захватывать содержимое любых веб-страниц через Chrome расширение и просматривать их в удобном текстовом формате.
 
-Currently, two official plugins are available:
+## Что это такое
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Page Snapshot Viewer — это инструмент для сохранения и просмотра веб-контента. Вы можете:
 
-## Expanding the ESLint configuration
+- **Захватывать страницы** — через Chrome расширение сохранять любые веб-страницы
+- **Просматривать контент** — видеть сохраненные страницы в читаемом Markdown формате
+- **Копировать и скачивать** — экспортировать контент в буфер обмена или файл
+- **Работать офлайн** — просматривать ранее сохраненные страницы без интернета
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Как использовать
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### 1. Установка и запуск
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+```bash
+# Установка зависимостей
+npm install
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# Настройка окружения
+cp env.config .env
+# Отредактируйте .env файл под ваше окружение
+
+# Запуск в режиме разработки
+npm run dev
+
+# Сборка для продакшена
+npm run build
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Приложение запустится на `http://localhost:5173`
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### 2. Настройка
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+Скопируйте `env.config` в `.env` и настройте параметры:
+
+```bash
+# Основные настройки
+VITE_API_BASE_URL=http://localhost:3000  # URL backend сервера
+VITE_API_TIMEOUT=5000                    # Таймаут запросов (мс)
+VITE_DEBUG_MODE=false                    # Режим отладки
 ```
+
+### 3. Работа с контентом
+
+**Просмотр страниц:**
+- Откройте приложение в браузере
+- Нажмите "Обновить" для загрузки последней сохраненной страницы
+- Контент отобразится в читаемом Markdown формате
+
+**Управление контентом:**
+- **Копировать** — скопировать весь текст в буфер обмена
+- **Скачать** — сохранить как `.md` файл на компьютер
+- **Очистить** — удалить текущий контент
+
+**Информация о контенте:**
+- Размер текста в байтах
+- Время последнего обновления
+- Статус загрузки
+
+### 4. Интеграция с системой
+
+Приложение работает в связке с:
+- **Chrome расширением** — для захвата веб-страниц
+- **Backend API** — для конвертации HTML в Markdown
+- **Локальным кешем** — для быстрого доступа к сохраненным данным
+
+## Возможности
+
+### Интерфейс
+- **Темная тема** — комфортный просмотр в любое время суток
+- **Адаптивный дизайн** — работает на всех устройствах
+- **Быстрая навигация** — клавиатурные сокращения и горячие клавиши
+- **Автосохранение** — данные сохраняются локально для быстрого доступа
+
+### Обработка данных
+- **Умная конвертация** — HTML автоматически преобразуется в читаемый Markdown
+- **Обработка ошибок** — понятные сообщения при проблемах с загрузкой
+- **Кеширование** — мгновенная загрузка ранее просмотренных страниц
+- **Валидация** — проверка корректности полученных данных
+
+### Экспорт
+- **Копирование в буфер** — одним кликом скопировать весь текст
+- **Скачивание файлов** — сохранение в формате `.md` с автоматическим именованием
+- **Форматирование** — сохранение структуры и разметки исходной страницы
+
+## Технические детали
+
+### Требования
+- Node.js 18+
+- Современный браузер с поддержкой ES2020
+- Chrome расширение для захвата страниц
+
+### API
+- **Endpoint**: `GET http://localhost:3000/api/md`
+- **Формат**: Plain text Markdown
+- **Кеширование**: LocalStorage для быстрого доступа
+- **Таймауты**: 5 секунд для проверки доступности сервера
+
+### Производительность
+- **Быстрая загрузка** — Vite для мгновенного HMR
+- **Оптимизированный рендеринг** — React 19 с современными паттернами
+- **Эффективное кеширование** — минимизация повторных запросов
+- **Плавная анимация** — 60fps интерфейс без лагов
+
+## Устранение неполадок
+
+**Страница не загружается:**
+- Проверьте, что backend сервер запущен на порту 3000
+- Убедитесь, что Chrome расширение установлено и настроено
+- Попробуйте обновить страницу (F5)
+
+**Ошибка сети:**
+- Проверьте подключение к интернету
+- Убедитесь, что сервер доступен по адресу `http://localhost:3000`
+- Проверьте настройки брандмауэра
+
+**Контент не отображается:**
+- Нажмите "Обновить" для загрузки данных
+- Проверьте, что страница была захвачена через расширение
+- Очистите кеш браузера при необходимости

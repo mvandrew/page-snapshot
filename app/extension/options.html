@@ -1,85 +1,499 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <title>Page Snapshot Settings</title>
-    <style>
+<html lang="ru">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Page Snapshot Settings</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --primary-color: #2563eb;
+      --primary-hover: #1d4ed8;
+      --secondary-color: #64748b;
+      --success-color: #059669;
+      --error-color: #dc2626;
+      --warning-color: #d97706;
+      --info-color: #0ea5e9;
+      --border-color: #e2e8f0;
+      --background: #ffffff;
+      --surface: #f8fafc;
+      --text-primary: #0f172a;
+      --text-secondary: #64748b;
+      --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+      --radius: 8px;
+      --spacing-xs: 4px;
+      --spacing-sm: 8px;
+      --spacing-md: 12px;
+      --spacing-lg: 16px;
+      --spacing-xl: 24px;
+      --spacing-2xl: 32px;
+    }
+
+    @media (prefers-color-scheme: dark) {
       :root {
-        color-scheme: light dark;
-        font-family: system-ui, sans-serif;
+        --border-color: #334155;
+        --background: #0f172a;
+        --surface: #1e293b;
+        --text-primary: #f1f5f9;
+        --text-secondary: #94a3b8;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background: var(--background);
+      color: var(--text-primary);
+      font-size: 14px;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: var(--spacing-2xl);
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: var(--spacing-2xl);
+      padding-bottom: var(--spacing-xl);
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .header h1 {
+      margin: 0 0 var(--spacing-sm) 0;
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--spacing-sm);
+    }
+
+    .header p {
+      margin: 0;
+      font-size: 16px;
+      color: var(--text-secondary);
+      max-width: 500px;
+      margin: 0 auto;
+    }
+
+    .form-section {
+      background: var(--surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: var(--spacing-xl);
+      margin-bottom: var(--spacing-xl);
+    }
+
+    .form-section h2 {
+      margin: 0 0 var(--spacing-lg) 0;
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+    }
+
+    .form-group {
+      margin-bottom: var(--spacing-lg);
+    }
+
+    .form-group:last-child {
+      margin-bottom: 0;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: var(--spacing-sm);
+      font-size: 14px;
+    }
+
+    .required {
+      color: var(--error-color);
+    }
+
+    .input-group {
+      position: relative;
+      display: flex;
+      align-items: stretch;
+    }
+
+    input[type='url'] {
+      flex: 1;
+      padding: var(--spacing-md) var(--spacing-lg);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      font-size: 14px;
+      background: var(--background);
+      color: var(--text-primary);
+      transition: all 0.2s ease;
+      min-height: 44px;
+    }
+
+    input[type='url']:focus {
+      outline: none;
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+    input[type='url']:invalid {
+      border-color: var(--error-color);
+    }
+
+    .input-help {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-top: var(--spacing-xs);
+      line-height: 1.4;
+    }
+
+    .button-group {
+      display: flex;
+      gap: var(--spacing-md);
+      flex-wrap: wrap;
+      margin-top: var(--spacing-lg);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--spacing-sm);
+      padding: var(--spacing-md) var(--spacing-lg);
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      font-size: 14px;
+      font-weight: 500;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      min-height: 44px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn:focus {
+      outline: 2px solid var(--primary-color);
+      outline-offset: 2px;
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    .btn-primary {
+      background: var(--primary-color);
+      color: white;
+      border-color: var(--primary-color);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: var(--primary-hover);
+      border-color: var(--primary-hover);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .btn-secondary {
+      background: var(--surface);
+      color: var(--text-primary);
+      border-color: var(--border-color);
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: var(--border-color);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow);
+    }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--primary-color);
+      border-color: var(--primary-color);
+    }
+
+    .btn-outline:hover:not(:disabled) {
+      background: var(--primary-color);
+      color: white;
+    }
+
+    .btn-icon {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+    }
+
+    .btn-loading {
+      position: relative;
+      color: transparent;
+    }
+
+    .btn-loading::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 16px;
+      height: 16px;
+      margin: -8px 0 0 -8px;
+      border: 2px solid transparent;
+      border-top: 2px solid currentColor;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
       }
 
-      body {
-        margin: 0;
-        padding: 24px;
-        background: Canvas;
-        color: CanvasText;
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    .status {
+      padding: var(--spacing-md);
+      border-radius: var(--radius);
+      font-size: 14px;
+      margin-top: var(--spacing-md);
+      display: none;
+      border: 1px solid transparent;
+    }
+
+    .status.show {
+      display: block;
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    .status-success {
+      background: rgba(5, 150, 105, 0.1);
+      color: var(--success-color);
+      border-color: rgba(5, 150, 105, 0.2);
+    }
+
+    .status-error {
+      background: rgba(220, 38, 38, 0.1);
+      color: var(--error-color);
+      border-color: rgba(220, 38, 38, 0.2);
+    }
+
+    .status-warning {
+      background: rgba(217, 119, 6, 0.1);
+      color: var(--warning-color);
+      border-color: rgba(217, 119, 6, 0.2);
+    }
+
+    .status-info {
+      background: rgba(14, 165, 233, 0.1);
+      color: var(--info-color);
+      border-color: rgba(14, 165, 233, 0.2);
+    }
+
+    .test-results {
+      margin-top: var(--spacing-lg);
+      padding: var(--spacing-lg);
+      background: var(--background);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      display: none;
+    }
+
+    .test-results.show {
+      display: block;
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    .test-results h3 {
+      margin: 0 0 var(--spacing-md) 0;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .test-details {
+      display: grid;
+      gap: var(--spacing-sm);
+      font-size: 13px;
+    }
+
+    .test-detail {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: var(--spacing-sm);
+      background: var(--surface);
+      border-radius: 4px;
+    }
+
+    .test-detail-label {
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .test-detail-value {
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      color: var(--text-primary);
+    }
+
+    .test-detail-value.success {
+      color: var(--success-color);
+    }
+
+    .test-detail-value.error {
+      color: var(--error-color);
+    }
+
+    .footer {
+      text-align: center;
+      padding-top: var(--spacing-xl);
+      border-top: 1px solid var(--border-color);
+      margin-top: var(--spacing-xl);
+    }
+
+    .footer-text {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin: 0;
+    }
+
+    /* Анимации */
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
       }
 
-      main {
-        max-width: 520px;
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .pulse {
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
       }
 
-      form {
-        display: flex;
+      50% {
+        opacity: 0.7;
+      }
+    }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      .container {
+        padding: var(--spacing-lg);
+      }
+
+      .button-group {
         flex-direction: column;
-        gap: 12px;
-        margin-top: 24px;
       }
 
-      label {
-        font-weight: 600;
+      .btn {
+        width: 100%;
       }
+    }
+  </style>
+</head>
 
-      input[type='url'] {
-        padding: 8px 10px;
-        border: 1px solid ButtonBorder;
-        border-radius: 6px;
-        font-size: 1rem;
-      }
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+          <circle cx="12" cy="13" r="4" />
+        </svg>
+        Page Snapshot Settings
+      </h1>
+      <p>Настройте endpoint для отправки снимков страниц. Расширение будет отправлять HTML и метаданные страницы в
+        формате JSON на указанный URL.</p>
+    </div>
 
-      button {
-        width: fit-content;
-        padding: 8px 16px;
-        border-radius: 6px;
-        border: 1px solid transparent;
-        background-color: AccentColor;
-        color: AccentColorText;
-        font-size: 1rem;
-        cursor: pointer;
-      }
+    <div class="form-section">
+      <h2>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3" />
+          <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1" />
+        </svg>
+        Конфигурация Endpoint
+      </h2>
 
-      button:disabled {
-        opacity: 0.6;
-        cursor: wait;
-      }
-
-      .status {
-        min-height: 1.2em;
-        font-size: 0.95rem;
-      }
-
-      .status--error {
-        color: #b00020;
-      }
-
-      .status--success {
-        color: #0f7a1d;
-      }
-    </style>
-  </head>
-  <body>
-    <main>
-      <h1>Page Snapshot Settings</h1>
-      <p>Provide the HTTPS endpoint that will receive page snapshots. The extension will send the page HTML and metadata to this URL as a JSON payload.</p>
       <form id="options-form">
-        <label for="endpoint-url">Endpoint URL *</label>
-        <input id="endpoint-url" name="endpoint-url" type="url" placeholder="https://api.example.com/snapshots" required />
-        <small>The endpoint must accept HTTPS POST requests with a JSON body.</small>
-        <button type="submit">Save</button>
+        <div class="form-group">
+          <label for="endpoint-url">
+            Endpoint URL <span class="required">*</span>
+          </label>
+          <div class="input-group">
+            <input id="endpoint-url" name="endpoint-url" type="url" placeholder="https://api.example.com/snapshots"
+              required autocomplete="url" />
+          </div>
+          <div class="input-help">
+            Endpoint должен принимать HTTPS POST запросы с JSON телом.
+            Поддерживаются только безопасные HTTPS соединения.
+          </div>
+        </div>
+
+        <div class="button-group">
+          <button type="submit" class="btn btn-primary">
+            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+              <polyline points="17,21 17,13 7,13 7,21" />
+              <polyline points="7,3 7,8 15,8" />
+            </svg>
+            Сохранить настройки
+          </button>
+
+          <button type="button" id="test-btn" class="btn btn-outline">
+            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 12l2 2 4-4" />
+              <path d="M21 12c-1 0-3-1-3-3s2-3 3-3 3 1 3 3-2 3-3 3" />
+              <path d="M3 12c1 0 3-1 3-3s-2-3-3-3-3 1-3 3 2 3 3 3" />
+              <path d="M12 3c0 1-1 3-3 3s-3-2-3-3 1-3 3-3 3 2 3 3" />
+              <path d="M12 21c0-1 1-3 3-3s3 2 3 3-1 3-3 3-3-2-3-3" />
+            </svg>
+            Тестировать подключение
+          </button>
+        </div>
+
         <div id="status" class="status" role="status" aria-live="polite"></div>
       </form>
-    </main>
-    <script type="module" src="./src/options/main.ts"></script>
-  </body>
+
+      <div id="test-results" class="test-results">
+        <h3>Результаты тестирования</h3>
+        <div id="test-details" class="test-details"></div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p class="footer-text">Page Snapshot Extension v0.0.1</p>
+    </div>
+  </div>
+
+  <script type="module" src="./src/options/main.ts"></script>
+</body>
+
 </html>

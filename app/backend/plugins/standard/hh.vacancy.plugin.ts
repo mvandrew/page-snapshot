@@ -2,9 +2,23 @@ import { MarkdownPlugin } from '../../src/markdown/markdown-plugin.interface';
 import * as fs from 'fs';
 
 /**
+ * Интерфейс для данных о вакансии hh.ru
+ */
+interface VacancyData {
+    title: string;
+    salary?: string;
+    experience?: string;
+    employment?: string;
+    contractType?: string;
+    schedule?: string;
+    workingHours?: string;
+    workFormat?: string;
+}
+
+/**
  * Плагин для обработки вакансий с сайта hh.ru
  * Срабатывает только для URL вида https://hh.ru/vacancy/{id} где id - цифры
- * Извлекает заголовок из тега <title> и создает markdown с заголовком и ссылкой
+ * Извлекает подробную информацию о вакансии включая заголовок, зарплату, опыт и условия работы
  */
 export class HhVacancyPlugin implements MarkdownPlugin {
     /**
@@ -17,7 +31,7 @@ export class HhVacancyPlugin implements MarkdownPlugin {
      * Конвертирует HTML файл в Markdown для вакансий hh.ru
      * @param htmlFilePath - путь к HTML файлу
      * @param pageUrl - URL сохраненной страницы из data.json
-     * @returns Markdown заголовок с ссылкой или null если URL не соответствует паттерну
+     * @returns Markdown с подробной информацией о вакансии или null если URL не соответствует паттерну
      */
     convert(htmlFilePath: string, pageUrl: string): string | null {
         try {
@@ -33,33 +47,432 @@ export class HhVacancyPlugin implements MarkdownPlugin {
             // Читаем HTML файл
             const htmlContent = fs.readFileSync(htmlFilePath, 'utf8');
 
-            // Ищем тег <title> в HTML
-            const titleMatch = htmlContent.match(/<title[^>]*>(.*?)<\/title>/i);
+            // Извлекаем данные о вакансии
+            const vacancyData = this.extractVacancyData(htmlContent);
 
-            if (titleMatch && titleMatch[1]) {
-                const title = titleMatch[1].trim();
-
-                if (title.length > 0) {
-                    console.log(`[HhVacancyPlugin] Найден заголовок вакансии: "${title}"`);
-
-                    // Создаем Markdown с заголовком и ссылкой на оригинальную вакансию
-                    let markdown = `# ${title}`;
-
-                    // Добавляем ссылку на оригинальную вакансию
-                    if (pageUrl && pageUrl.trim().length > 0) {
-                        markdown += `\n\n[Открыть вакансию](${pageUrl})`;
-                    }
-
-                    return markdown;
-                }
+            if (!vacancyData.title) {
+                console.log('[HhVacancyPlugin] Не удалось извлечь заголовок вакансии');
+                return null;
             }
 
-            console.log('[HhVacancyPlugin] Тег <title> не найден или пуст');
-            return null;
+            console.log(`[HhVacancyPlugin] Найдены данные вакансии:`, vacancyData);
+
+            // Создаем Markdown с подробной информацией
+            return this.createMarkdown(vacancyData, pageUrl);
+
         } catch (error) {
             console.error(`[HhVacancyPlugin] Ошибка при обработке файла ${htmlFilePath}:`, error.message);
             return null;
         }
+    }
+
+    /**
+     * Извлекает данные о вакансии из HTML контента
+     * @param htmlContent - HTML контент страницы
+     * @returns объект с данными вакансии
+     */
+    private extractVacancyData(htmlContent: string): VacancyData {
+        const vacancyData: VacancyData = {
+            title: '',
+        };
+
+        // Извлекаем заголовок из h1 тега
+        vacancyData.title = this.extractTitle(htmlContent);
+
+        // Извлекаем зарплату
+        vacancyData.salary = this.extractSalary(htmlContent);
+
+        // Извлекаем опыт работы
+        vacancyData.experience = this.extractExperience(htmlContent);
+
+        // Извлекаем тип занятости
+        vacancyData.employment = this.extractEmployment(htmlContent);
+
+        // Извлекаем тип оформления
+        vacancyData.contractType = this.extractContractType(htmlContent);
+
+        // Извлекаем график работы
+        vacancyData.schedule = this.extractSchedule(htmlContent);
+
+        // Извлекаем рабочие часы
+        vacancyData.workingHours = this.extractWorkingHours(htmlContent);
+
+        // Извлекаем формат работы
+        vacancyData.workFormat = this.extractWorkFormat(htmlContent);
+
+        return vacancyData;
+    }
+
+    /**
+     * Извлекает заголовок вакансии из h1 тега
+     * @param htmlContent - HTML контент
+     * @returns заголовок вакансии или пустую строку
+     */
+    private extractTitle(htmlContent: string): string {
+        // Ищем h1 тег с data-qa="vacancy-title" и span внутри
+        const h1Match = htmlContent.match(/<h1[^>]*data-qa="vacancy-title"[^>]*>.*?<span[^>]*>(.*?)<\/span>.*?<\/h1>/is);
+        if (h1Match && h1Match[1]) {
+            return h1Match[1].trim();
+        }
+
+        // Fallback на обычный h1 тег
+        const h1SimpleMatch = htmlContent.match(/<h1[^>]*>(.*?)<\/h1>/is);
+        if (h1SimpleMatch && h1SimpleMatch[1]) {
+            const title = h1SimpleMatch[1].replace(/<[^>]*>/g, '').trim();
+            if (title.length > 0) {
+                return title;
+            }
+        }
+
+        // Fallback на title тег
+        const titleMatch = htmlContent.match(/<title[^>]*>(.*?)<\/title>/i);
+        if (titleMatch && titleMatch[1]) {
+            const title = titleMatch[1]
+                .replace(/\s*-\s*работа\s+в\s+.*$/i, '')
+                .replace(/\s*-\s*hh\.ru$/i, '')
+                .replace(/\s*\|\s*HeadHunter$/i, '')
+                .trim();
+            if (title.length > 0) {
+                return title;
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * Извлекает информацию о зарплате
+     * @param htmlContent - HTML контент
+     * @returns информация о зарплате или undefined
+     */
+    private extractSalary(htmlContent: string): string | undefined {
+        // Ищем блок с data-qa="vacancy-salary"
+        const salaryBlockMatch = htmlContent.match(/<div[^>]*data-qa="vacancy-salary"[^>]*>(.*?)<\/div>/is);
+        if (salaryBlockMatch && salaryBlockMatch[1]) {
+            const salaryContent = salaryBlockMatch[1];
+            // Извлекаем текст из span с data-qa="vacancy-salary-compensation-type-net"
+            const salarySpanMatch = salaryContent.match(/<span[^>]*data-qa="vacancy-salary-compensation-type-net"[^>]*>(.*?)<\/span>/is);
+            if (salarySpanMatch && salarySpanMatch[1]) {
+                // Очищаем HTML теги и нормализуем пробелы
+                const salaryText = salarySpanMatch[1]
+                    .replace(/<[^>]*>/g, '')
+                    .replace(/&nbsp;/g, ' ')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+                if (salaryText.length > 0) {
+                    return salaryText;
+                }
+            }
+        }
+
+        // Fallback на поиск по паттернам
+        const salaryPatterns = [
+            /(от\s+\d+[\s,]*\d*\s*₽[^<\n]*)/i,
+            /(до\s+\d+[\s,]*\d*\s*₽[^<\n]*)/i,
+            /(\d+[\s,]*\d*\s*₽[^<\n]*)/i,
+            /(от\s+\d+[\s,]*\d*\s*рублей?[^<\n]*)/i,
+            /(до\s+\d+[\s,]*\d*\s*рублей?[^<\n]*)/i,
+            /(\d+[\s,]*\d*\s*рублей?[^<\n]*)/i,
+        ];
+
+        for (const pattern of salaryPatterns) {
+            const match = htmlContent.match(pattern);
+            if (match && match[1]) {
+                return match[1].trim();
+            }
+        }
+
+        return undefined;
+    }
+
+    /**
+     * Извлекает информацию об опыте работы
+     * @param htmlContent - HTML контент
+     * @returns информация об опыте или undefined
+     */
+    private extractExperience(htmlContent: string): string | undefined {
+        // Ищем блок с data-qa="work-experience-text"
+        const experienceBlockMatch = htmlContent.match(/<p[^>]*data-qa="work-experience-text"[^>]*>(.*?)<\/p>/is);
+        if (experienceBlockMatch && experienceBlockMatch[1]) {
+            const experienceContent = experienceBlockMatch[1];
+            // Ищем span с data-qa="vacancy-experience"
+            const experienceSpanMatch = experienceContent.match(/<span[^>]*data-qa="vacancy-experience"[^>]*>(.*?)<\/span>/is);
+            if (experienceSpanMatch && experienceSpanMatch[1]) {
+                return experienceSpanMatch[1].trim();
+            }
+            // Если span не найден, извлекаем весь текст
+            const experienceText = experienceContent
+                .replace(/<[^>]*>/g, '')
+                .replace(/&nbsp;/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+            if (experienceText.length > 0) {
+                return experienceText;
+            }
+        }
+
+        // Fallback на поиск по паттернам
+        const experiencePatterns = [
+            /опыт(?:\s+работы)?[:\s]*([^<\n]*(?:лет|года?|месяц))/i,
+            /(без\s+опыта|нет\s+опыта)/i,
+            /(\d+[-–]\d+\s+лет)/i,
+            /(более\s+\d+\s+лет)/i,
+        ];
+
+        for (const pattern of experiencePatterns) {
+            const match = htmlContent.match(pattern);
+            if (match && match[1]) {
+                return match[1].trim();
+            }
+        }
+
+        return undefined;
+    }
+
+    /**
+     * Извлекает тип занятости
+     * @param htmlContent - HTML контент
+     * @returns тип занятости или undefined
+     */
+    private extractEmployment(htmlContent: string): string | undefined {
+        // Ищем блок с data-qa="common-employment-text"
+        const employmentBlockMatch = htmlContent.match(/<div[^>]*data-qa="common-employment-text"[^>]*>(.*?)<\/div>/is);
+        if (employmentBlockMatch && employmentBlockMatch[1]) {
+            const employmentContent = employmentBlockMatch[1];
+            // Ищем span с классом text
+            const employmentSpanMatch = employmentContent.match(/<span[^>]*class="[^"]*text[^"]*"[^>]*>(.*?)<\/span>/is);
+            if (employmentSpanMatch && employmentSpanMatch[1]) {
+                return employmentSpanMatch[1].trim();
+            }
+            // Если span не найден, извлекаем весь текст
+            const employmentText = employmentContent
+                .replace(/<[^>]*>/g, '')
+                .replace(/&nbsp;/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+            if (employmentText.length > 0) {
+                return employmentText;
+            }
+        }
+
+        // Fallback на поиск по паттернам
+        const employmentPatterns = [
+            /(полная\s+занятость)/i,
+            /(частичная\s+занятость)/i,
+            /(проектная\s+работа)/i,
+            /(стажировка)/i,
+        ];
+
+        for (const pattern of employmentPatterns) {
+            const match = htmlContent.match(pattern);
+            if (match && match[1]) {
+                return match[1].trim();
+            }
+        }
+
+        return undefined;
+    }
+
+    /**
+     * Извлекает тип оформления
+     * @param htmlContent - HTML контент
+     * @returns тип оформления или undefined
+     */
+    private extractContractType(htmlContent: string): string | undefined {
+        // Ищем блок с классом "row" и span с текстом "Оформление"
+        const contractBlockMatch = htmlContent.match(/<div[^>]*class="[^"]*row[^"]*"[^>]*>.*?Оформление.*?<span[^>]*class="[^"]*vacancy-key-info-item[^"]*"[^>]*>(.*?)<\/span>.*?<\/div>/is);
+        if (contractBlockMatch && contractBlockMatch[1]) {
+            const contractText = contractBlockMatch[1]
+                .replace(/<[^>]*>/g, '')
+                .replace(/&nbsp;/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+            if (contractText.length > 0) {
+                return contractText;
+            }
+        }
+
+        // Fallback на поиск по паттернам
+        const contractPatterns = [
+            /(договор\s+гпх[^<\n]*)/i,
+            /(трудовой\s+договор)/i,
+            /(самозанятый)/i,
+        ];
+
+        for (const pattern of contractPatterns) {
+            const match = htmlContent.match(pattern);
+            if (match && match[1]) {
+                return match[1].trim();
+            }
+        }
+
+        return undefined;
+    }
+
+    /**
+     * Извлекает график работы
+     * @param htmlContent - HTML контент
+     * @returns график работы или undefined
+     */
+    private extractSchedule(htmlContent: string): string | undefined {
+        // Ищем блок с data-qa="work-schedule-by-days-text"
+        const scheduleBlockMatch = htmlContent.match(/<p[^>]*data-qa="work-schedule-by-days-text"[^>]*>(.*?)<\/p>/is);
+        if (scheduleBlockMatch && scheduleBlockMatch[1]) {
+            const scheduleContent = scheduleBlockMatch[1];
+            // Извлекаем текст после "График:"
+            const scheduleText = scheduleContent
+                .replace(/<[^>]*>/g, '')
+                .replace(/&nbsp;/g, ' ')
+                .replace(/\s+/g, ' ')
+                .replace(/^График:\s*/, '')
+                .trim();
+            if (scheduleText.length > 0) {
+                return scheduleText;
+            }
+        }
+
+        // Fallback на поиск по паттернам
+        const schedulePatterns = [
+            /график[:\s]*([^<\n]*(?:\d+\/\d+|\d+\s*дней))/i,
+            /(\d+\/\d+)/,
+            /(понедельник[-–]пятница)/i,
+        ];
+
+        for (const pattern of schedulePatterns) {
+            const match = htmlContent.match(pattern);
+            if (match && match[1]) {
+                return match[1].trim();
+            }
+        }
+
+        return undefined;
+    }
+
+    /**
+     * Извлекает рабочие часы
+     * @param htmlContent - HTML контент
+     * @returns рабочие часы или undefined
+     */
+    private extractWorkingHours(htmlContent: string): string | undefined {
+        // Ищем блок с data-qa="working-hours-text"
+        const workingHoursBlockMatch = htmlContent.match(/<div[^>]*data-qa="working-hours-text"[^>]*>(.*?)<\/div>/is);
+        if (workingHoursBlockMatch && workingHoursBlockMatch[1]) {
+            const workingHoursContent = workingHoursBlockMatch[1];
+            // Ищем span с классом text
+            const workingHoursSpanMatch = workingHoursContent.match(/<span[^>]*class="[^"]*text[^"]*"[^>]*>(.*?)<\/span>/is);
+            if (workingHoursSpanMatch && workingHoursSpanMatch[1]) {
+                const workingHoursText = workingHoursSpanMatch[1]
+                    .replace(/<[^>]*>/g, '')
+                    .replace(/&nbsp;/g, ' ')
+                    .replace(/\s+/g, ' ')
+                    .replace(/^Рабочие\s+часы:\s*/, '')
+                    .trim();
+                if (workingHoursText.length > 0) {
+                    return workingHoursText;
+                }
+            }
+        }
+
+        // Fallback на поиск по паттернам
+        const hoursPatterns = [
+            /(\d+)\s*час/i,
+            /рабочие\s+часы[:\s]*(\d+)/i,
+        ];
+
+        for (const pattern of hoursPatterns) {
+            const match = htmlContent.match(pattern);
+            if (match && match[1]) {
+                return match[1].trim();
+            }
+        }
+
+        return undefined;
+    }
+
+    /**
+     * Извлекает формат работы
+     * @param htmlContent - HTML контент
+     * @returns формат работы или undefined
+     */
+    private extractWorkFormat(htmlContent: string): string | undefined {
+        // Ищем блок с data-qa="work-formats-text"
+        const workFormatBlockMatch = htmlContent.match(/<p[^>]*data-qa="work-formats-text"[^>]*>(.*?)<\/p>/is);
+        if (workFormatBlockMatch && workFormatBlockMatch[1]) {
+            const workFormatContent = workFormatBlockMatch[1];
+            // Извлекаем текст после "Формат работы:"
+            const workFormatText = workFormatContent
+                .replace(/<[^>]*>/g, '')
+                .replace(/&nbsp;/g, ' ')
+                .replace(/\s+/g, ' ')
+                .replace(/^Формат\s+работы:\s*/, '')
+                .trim();
+            if (workFormatText.length > 0) {
+                return workFormatText;
+            }
+        }
+
+        // Fallback на поиск по паттернам
+        const formatPatterns = [
+            /(удалённо|удаленно)/i,
+            /(в\s+офисе)/i,
+            /(гибридный\s+формат)/i,
+            /(можно\s+удалённо)/i,
+        ];
+
+        for (const pattern of formatPatterns) {
+            const match = htmlContent.match(pattern);
+            if (match && match[1]) {
+                return match[1].trim();
+            }
+        }
+
+        return undefined;
+    }
+
+    /**
+     * Создает Markdown из данных о вакансии
+     * @param vacancyData - данные о вакансии
+     * @param pageUrl - URL страницы
+     * @returns Markdown строка
+     */
+    private createMarkdown(vacancyData: VacancyData, pageUrl: string): string {
+        let markdown = `# ${vacancyData.title}\n\n`;
+
+        // Добавляем основную информацию
+        if (vacancyData.salary) {
+            markdown += `**💰 Зарплата:** ${vacancyData.salary}\n\n`;
+        }
+
+        if (vacancyData.experience) {
+            markdown += `**👨‍💼 Опыт работы:** ${vacancyData.experience}\n\n`;
+        }
+
+        if (vacancyData.employment) {
+            markdown += `**📋 Занятость:** ${vacancyData.employment}\n\n`;
+        }
+
+        if (vacancyData.contractType) {
+            markdown += `**📝 Оформление:** ${vacancyData.contractType}\n\n`;
+        }
+
+        if (vacancyData.schedule) {
+            markdown += `**📅 График:** ${vacancyData.schedule}\n\n`;
+        }
+
+        if (vacancyData.workingHours) {
+            markdown += `**⏰ Рабочие часы:** ${vacancyData.workingHours}\n\n`;
+        }
+
+        if (vacancyData.workFormat) {
+            markdown += `**🏠 Формат работы:** ${vacancyData.workFormat}\n\n`;
+        }
+
+        // Добавляем ссылку на оригинальную вакансию
+        if (pageUrl && pageUrl.trim().length > 0) {
+            markdown += `---\n\n[🔗 Открыть оригинальную вакансию](${pageUrl})`;
+        }
+
+        return markdown;
     }
 
     /**
